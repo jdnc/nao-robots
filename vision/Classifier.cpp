@@ -135,6 +135,7 @@ void Classifier::getStepScale(int& h, int& v){
 
 void Classifier::constructRuns(){
     //construct vertical runs
+    printf("Hare Krishna. In construct Runs!\n");
     for(int i=0; i<iparams_.width; i++){
         uint16_t xi, xf;
         xi = xf = i;
