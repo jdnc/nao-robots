@@ -1,0 +1,1425 @@
+#include "HTWKWalkModule.h"
+
+#include <iomanip>
+
+#include <kinematics/ForwardKinematics.h>
+
+#include <memory/BodyModelBlock.h>
+#include <memory/FrameInfoBlock.h>
+#include <memory/GraphableBlock.h>
+#include <memory/JointBlock.h>
+#include <memory/JointCommandBlock.h>
+#include <memory/OdometryBlock.h>
+#include <memory/SensorBlock.h>
+//#include <memory/WalkEngineBlock.h>
+#include <memory/WalkParamBlock.h>
+#include <memory/WalkRequestBlock.h>
+#include <memory/RobotInfoBlock.h>
+
+#include <math/Geometry.h>
+
+#include <common/RingBufferWithSum.h>
+
+//#define USE_POS_LOOP
+//#define USE_PAST_POS_LOOP
+//#define USE_FSR_LOOP
+//#define READ_PARAMS_FROM_FILE
+
+const float DECAY_COM_X = 0.75;
+const float FACTOR_COM_X = 0.0;//0.25;//-1.0;//0.25;//-0.2;
+const float DECAY_COM_Y = 0.75;
+const float FACTOR_COM_Y = 0.5;//0.5;//0.25;//1.0;
+const float DECAY_COM_Z = 0.75;
+const float FACTOR_COM_Z = 0;//0.5;//0.25;//1.0;
+
+const float DECAY_ZMP_X = 0.5;
+const float FACTOR_ZMP_X = 0.05;//0.05;//0.05;//-0.2;
+const float DECAY_ZMP_Y = 0.75;
+const float FACTOR_ZMP_Y = 0.0;//0.05;//0.2;//-0.3;
+
+const float PID_COM_P_X = 0.25;
+const float PID_COM_I_X = 0;
+const float PID_COM_D_X = 0;
+
+const float PID_COM_P_Y = 0.25;
+const float PID_COM_I_Y = 0;
+const float PID_COM_D_Y = 0;
+
+const float PID_COM_P_Z = 0.25;
+const float PID_COM_I_Z = 0;
+const float PID_COM_D_Z = 0;
+
+const float PID_ZMP_P_X = 0.005;
+const float PID_ZMP_I_X = 0;
+const float PID_ZMP_D_X = 0.0025;
+
+const float PID_ZMP_P_Y = -0.5;//0.020;
+const float PID_ZMP_I_Y = 0;
+const float PID_ZMP_D_Y = 0;//0.0025;
+  
+const float HTWKWalkModule::iniAngles[NUM_JOINTS]={0.,0.,1.868f,0.284f,-1.6f,-0.584f,0.f,0.f,0.00f,0.2f,-0.18f,0.f,0.f,0.f,0.00f,0.2f,-0.18f,0.f,1.868f,-0.284f,1.6f,0.584f};
+  
+const int HTWKWalkModule::jointMapping[NUM_JOINTS] = {
+  HeadYaw,
+  HeadPitch,
+
+  LShoulderPitch,
+  LShoulderRoll,
+  LElbowYaw,
+  LElbowRoll,
+
+  LHipYawPitch,
+  LHipRoll,
+  LHipPitch,
+  LKneePitch,
+  LAnklePitch,
+  LAnkleRoll,
+
+  RHipYawPitch,
+  RHipRoll,
+  RHipPitch,
+  RKneePitch,
+  RAnklePitch,
+  RAnkleRoll,
+
+  RShoulderPitch,
+  RShoulderRoll,
+  RElbowYaw,
+  RElbowRoll
+};
+
+const float HTWKWalkModule::STAND_TIME = 1.5f;
+
+HTWKWalkModule::HTWKWalkModule():
+  walkVel(0,0,0),
+#ifdef USE_EXP_FILTER
+  filterLeftPos(ExponentialFilter(DECAY_COM_X,FACTOR_COM_X),ExponentialFilter(DECAY_COM_Y,FACTOR_COM_Y),ExponentialFilter(DECAY_COM_Z,FACTOR_COM_Z)),
+  filterRightPos(ExponentialFilter(DECAY_COM_X,FACTOR_COM_X),ExponentialFilter(DECAY_COM_Y,FACTOR_COM_Y),ExponentialFilter(DECAY_COM_Z,FACTOR_COM_Z)),
+  filterLeftZmp(ExponentialFilter(DECAY_ZMP_X,FACTOR_ZMP_X),ExponentialFilter(DECAY_ZMP_Y,FACTOR_ZMP_Y)),
+  filterRightZmp(ExponentialFilter(DECAY_ZMP_X,FACTOR_ZMP_X),ExponentialFilter(DECAY_ZMP_Y,FACTOR_ZMP_Y)),
+#else
+  filterLeftPos (PIDController(PID_COM_P_X,PID_COM_I_X,PID_COM_D_X),PIDController(PID_COM_P_Y,PID_COM_I_Y,PID_COM_D_Y),PIDController(PID_COM_P_Z,PID_COM_I_Z,PID_COM_D_Z)),
+  filterRightPos(PIDController(PID_COM_P_X,PID_COM_I_X,PID_COM_D_X),PIDController(PID_COM_P_Y,PID_COM_I_Y,PID_COM_D_Y),PIDController(PID_COM_P_Z,PID_COM_I_Z,PID_COM_D_Z)),
+  filterLeftZmp (PIDController(PID_ZMP_P_X,PID_ZMP_I_X,PID_ZMP_D_X),PIDController(PID_ZMP_P_Y,PID_ZMP_I_Y,PID_ZMP_D_Y)),
+  filterRightZmp(PIDController(PID_ZMP_P_X,PID_ZMP_I_X,PID_ZMP_D_X),PIDController(PID_ZMP_P_Y,PID_ZMP_I_Y,PID_ZMP_D_Y)),
+#endif
+  //filterBodyTilt(-0.4,0.00,0.00),
+  //filterBodyRoll(-1,0,0),
+  lastStandSendTime(0),
+  kickingCurrently(false),
+  kickRequested(false),
+  standRequired(false)
+{
+#ifdef READ_PARAMS_FROM_FILE 
+  std::ifstream in("params.txt");
+  float decay_com_x, factor_com_x, decay_com_y, factor_com_y, decay_zmp_x, factor_zmp_x, decay_zmp_y, factor_zmp_y;
+  in >> decay_com_x;
+  in >> factor_com_x;
+  in >> decay_com_y;
+  in >> factor_com_y;
+  in >> decay_zmp_x;
+  in >> factor_zmp_x;
+  in >> decay_zmp_y;
+  in >> factor_zmp_y;
+  in.close();
+  std::cout << "READ PARAMS FROM params.txt" << std::endl;
+
+  filterLeftPos[0].setParams(decay_com_x,factor_com_x);
+  filterLeftPos[1].setParams(decay_com_y,factor_com_y);
+  filterRightPos[0].setParams(decay_com_x,factor_com_x);
+  filterRightPos[1].setParams(decay_com_y,factor_com_y);
+
+  filterLeftZmp[0].setParams(decay_zmp_x,factor_zmp_x);
+  filterLeftZmp[1].setParams(decay_zmp_y,factor_zmp_y);
+  filterRightZmp[0].setParams(decay_zmp_x,factor_zmp_x);
+  filterRightZmp[1].setParams(decay_zmp_y,factor_zmp_y);
+#endif
+}
+
+HTWKWalkModule::~HTWKWalkModule(){
+}
+
+void HTWKWalkModule::specifyMemoryDependency() {
+  requiresMemoryBlock("body_model");
+  requiresMemoryBlock("frame_info");
+  requiresMemoryBlock("graphable");
+  requiresMemoryBlock("processed_joint_angles");
+  requiresMemoryBlock("processed_joint_commands");
+  requiresMemoryBlock("odometry");
+  requiresMemoryBlock("processed_sensors");
+  requiresMemoryBlock("walk_engine");
+  requiresMemoryBlock("walk_param");
+  requiresMemoryBlock("walk_request");
+  requiresMemoryBlock("robot_info");
+}
+
+void HTWKWalkModule::specifyMemoryBlocks() {
+  getOrAddMemoryBlock(body_model_,"body_model");
+  getOrAddMemoryBlock(frame_info_,"frame_info");
+  getOrAddMemoryBlock(graph_,"graphable");
+  getOrAddMemoryBlock(joints_,"processed_joint_angles");
+  getOrAddMemoryBlock(commands_,"processed_joint_commands");
+  getOrAddMemoryBlock(odometry_,"odometry");
+  getOrAddMemoryBlock(sensors_,"processed_sensors");
+  getOrAddMemoryBlock(walk_mem_,"walk_engine");
+  getOrAddMemoryBlock(walk_param_,"walk_param");
+  getOrAddMemoryBlock(walk_request_,"walk_request");
+  getOrAddMemoryBlock(robot_info_,"robot_info");
+
+  walk_mem_->motion_prev_ = WalkRequestBlock::NONE;
+  walk_mem_->motion_current_ = WalkRequestBlock::NONE;
+
+  //if (frame_info_->source == MEMORY_SIM) {
+    //frameInc = 2;
+    //params.sensorDelayProp = 8 / frameInc;
+    //params.sensorDelayFsr = 12 / frameInc;
+  //}
+  reset();
+}
+
+void HTWKWalkModule::initSpecificModule() {
+}
+
+void HTWKWalkModule::processFrame() {
+  if (walk_param_->send_params_) {
+    params = walk_param_->htwk_params_;
+    walk_param_->send_params_ = false;
+  }
+
+  //walk_request_->setWalk(0,0,0.0);
+  //walk_request_->stand();
+  updateTiltAndRoll();
+  processWalkRequest();
+
+  bool newMotion = (walk_mem_->motion_current_ != walk_mem_->motion_prev_);
+
+  initStiffness(1.0);
+
+  switch (walk_mem_->motion_current_) {
+  case WalkRequestBlock::NONE:
+    break;
+
+    // walk and stand call the same stuff
+  case WalkRequestBlock::STAND:
+    if (newMotion)
+      lastStandSendTime = 0;
+    stand();
+    break;
+  case WalkRequestBlock::WALK:
+    if (newMotion) {
+      initWalk();
+    }
+    walk();
+    break;
+
+  default:
+    break;
+  }
+
+  //if (walk_mem_->motion_current_ != WalkRequestBlock::NONE) {
+    //std::cout << walkNames[walk_mem_->motion_current_] << std::endl;
+  //}
+
+  // this should be called at the end
+  updateOdometry();
+
+  walk_request_->target_walk_is_active_ = hasTarget;
+}
+ 
+void HTWKWalkModule::updateTiltAndRoll() {
+  // get body tilt and roll
+  if (params.useAngleLoop) {
+    bodyTilt = sensors_->values_[angleY];
+    bodyRoll = sensors_->values_[angleX];
+  } else {
+    bodyTilt = 0;
+    bodyRoll = 0;
+  }
+  float bodyTiltTargetDes = params.bodyTiltTarget;
+  if (walkVel.translation.x > 0)
+    bodyTiltTargetDes += (walkVel.translation.x / params.maxVel.translation.x) * (params.bodyTiltTargetFullFwd - params.bodyTiltTarget);
+  else
+    bodyTiltTargetDes += (walkVel.translation.x / params.maxBack) * (params.bodyTiltTargetFullBack - params.bodyTiltTarget);
+  bodyTiltTarget += params.bodyTiltTargetUpdateRate * (bodyTiltTargetDes - bodyTiltTarget); // change slowly
+  //std::cout << walkVel.translation.x << " " << bodyTiltTarget << std::endl;
+  //bodyTiltTarget = params.bodyTiltTarget;
+  bodyTiltError = bodyTilt - bodyTiltTarget;
+  bodyRollError = bodyRoll;
+  bodyTiltErrors.add(fabs(bodyTiltError));
+  bodyRollErrors.add(fabs(bodyRoll));
+  avgBodyTiltError = bodyTiltErrors.getAverage();
+  avgBodyRollError = bodyRollErrors.getAverage();
+  //std::cout << RAD_T_DEG * bodyTilt << " " << RAD_T_DEG * (bodyTilt - params.bodyTiltTarget) << " " << RAD_T_DEG * avgBodyTiltError << std::endl;
+}
+
+void HTWKWalkModule::walk() {
+  // update the time and calculate the stance leg
+  updateTime();
+  updateStance();
+  calcDesiredSpeed();
+
+  // get delayed info
+  DelayedInfo delayed;
+  getDelayedInfo(delayed);
+
+
+  Pose3D leftTarget;
+  Pose3D rightTarget;
+
+  // calculate the open loop control
+  calcOpenLoop(frame,bodyTiltError,bodyRollError,leftTarget,rightTarget);
+
+  // apply the kick if desired
+  if (kickingCurrently) {
+    applyKick(frame,leftTarget,rightTarget);
+  }
+
+  // apply the closed loop control
+  applyClosedLoop(leftTarget,rightTarget,delayed);
+  // use the inverse kinematics to calculate the new leg positions
+  inverse_kinematics_.calcLegJoints(leftTarget, rightTarget, commands_->angles_, robot_info_->dimensions_);
+
+  commands_->send_body_angles_ = true;
+  commands_->body_angle_time_ = 0;
+  setArms(commands_->angles_,0);
+
+  // save some data
+  saveDelayedInfo(leftTarget,rightTarget);
+  // update stance info for odometry
+  leftStanceOdom = delayed.leftStance;
+  globalFrameOffsetOdom = delayed.globalFrameOffset;
+}
+
+void HTWKWalkModule::saveDelayedInfo(const Pose3D &leftTarget, const Pose3D &rightTarget) {
+  DelayedInfo delayed;
+  calcOpenLoop(frame,0,0,delayed.leftDes,delayed.rightDes);
+  delayed.leftCom = leftTarget;
+  delayed.rightCom = rightTarget;
+  delayed.globalFrameOffset = globalFrameOffset;
+  delayed.leftStance = leftStance;
+  delayedInfos.push(delayed);
+  delayed.frame = frame;
+  // com
+  if (leftStance)
+    delayed.com = delayed.leftDes;
+  else
+    delayed.com = delayed.leftDes;
+  delayed.com.translation *= -1;
+  delayed.com.rotation.invert();
+  delayed.com = delayed.com.relativeToGlobal(globalFrameOffset);
+  
+  // zmps
+  Vector2<float> delayedZmp(0,0); // say it's at 0,0 for now
+  delayedZmp = delayedZmp.relativeToGlobal(globalFrameOffset.translation,globalFrameOffset.rotation);
+  delayedZmps.push(delayedZmp);
+}
+
+void HTWKWalkModule::updateStance() {
+  bool newLeftStance = calcStance();
+  if (newLeftStance != leftStance) {
+    leftStance = !leftStance;
+    if (kickRequested && leftStance != kickWithLeft) {
+      //if ((avgBodyTiltError < params.bodyTiltNoKick) && (fabs(bodyTilt - bodyTiltTarget) < params.bodyTiltNoKick)) {
+      if ((avgBodyTiltError < params.bodyTiltNoKick) && (fabs(bodyTilt) < params.bodyTiltNoKick)) {
+        // don't kick when unstable
+        initKick();
+      }
+    }
+    updateGlobal();
+    odometryThisStep = Pose2D(0,0,0);
+    freezeStepPrev = freezeStep;
+    frozenDiffPrev = frozenDiff;
+    freezeStep = false;
+    freeze = false;
+  }
+}
+
+void HTWKWalkModule::initKick() {
+  kickingCurrently = true;
+  //if (fabs(kickHeading) > 1.0) {
+  //calcKickSpline(params.sideKick);
+  //} else {
+  calcKickSpline(params.frontKick);
+  //}
+}
+
+bool HTWKWalkModule::calcStance(int inFrame) {
+  if (inFrame < 0)
+    inFrame = frame;
+  if ((inFrame < params.stanceSwitch1) || (inFrame >= params.stanceSwitch2))
+    return false;
+  else
+    return true;
+}
+
+float HTWKWalkModule::getDesiredVelForTargetDim(float targetPos, float currentVel, float maxVel, float maxPosError, float maxVelError) {
+  int framesLeftInStep;
+  if (frame < params.stanceSwitch1)
+    framesLeftInStep = params.stanceSwitch1 - frame;
+  else if (frame < params.stanceSwitch2)
+    framesLeftInStep = params.stanceSwitch2 - frame;
+  else // frame >= params.stanceSwitch2
+    framesLeftInStep = params.stanceSwitch1 + params.numFrames - frame;
+  float timeLeftInStep = framesLeftInStep * 0.01;
+  //float maxAccelInCurrentStep = params.maxVelAccel * framesLeftInStep;
+  //float maxDecelInCurrentStep = params.maxVelDecel * framesLeftInStep;
+ 
+  int numFramesPerStep = params.numFrames / 2;
+  //float maxAccelPerStep = params.maxVelAccel * numFramesPerStep;
+  //float maxDecelPerStep = params.maxVelDecel * numFramesPerStep;
+
+  float maxStepSize = maxVel * numFramesPerStep;
+  int targetPosSign = sgn(targetPos);
+
+  //float desiredVel;
+  //if (targetPosSign * targetPos <= maxPosError) {
+    //desiredVel = targetPosSign * maxVelError * 0.5;
+    ////desiredVel = 0;
+  //} else if (targetPosSign * currentVel * timeLeftInStep >= targetPosSign * targetPos * 0.95) {
+    //// already close enough
+    //desiredVel = targetPos / timeLeftInStep;
+  //} else if (targetPosSign * targetPos <= maxStepSize * 2.0) {
+    //// don't go more than 50% near the end
+    //desiredVel = targetPosSign * maxVel * 0.5;
+  //} else {
+    //desiredVel = targetPosSign * maxVel;
+  //}
+  //return desiredVel;
+  
+  float desiredTimeToReachTarget = 1.0;
+  if (targetPosSign * targetPos < maxVel * 0.5)
+    desiredTimeToReachTarget = 0.5;
+  return targetPos / desiredTimeToReachTarget;
+
+
+  //float targetVel = 0;
+
+  //int numStepsToStop = ceil(maxVel / maxDecelPerStep);
+  
+  // TODO velChangeNeeded sign
+  //float velChangeNeeded = currentVel - targetVel;
+  //int numStepsForVelChange = ceil(velChangeNeeded / maxDecelPerStep);
+}
+  
+void HTWKWalkModule::getDesiredVelForTarget(Pose2D &maxVel, Pose2D &desiredVel) {
+  //Pose2D relTargetPos = targetPos.globalToRelative(globalSensedTorso);
+  desiredVel.translation.x = getDesiredVelForTargetDim(targetPos.translation.x,walkVel.translation.x,maxVel.translation.x,params.targetPosErrorAllowed.translation.x,targetVelErrorAllowed.translation.x);
+  //std::cout << targetPos.translation.x << " " << desiredVel.translation.x << std::endl;
+  desiredVel.translation.y = getDesiredVelForTargetDim(targetPos.translation.y,walkVel.translation.y,maxVel.translation.y,params.targetPosErrorAllowed.translation.y,targetVelErrorAllowed.translation.y);
+  desiredVel.rotation = 0;
+  // TODO IGNORING ROTATION
+}
+
+bool HTWKWalkModule::absLessThanError(const Pose2D &vals, const Pose2D &err) {
+  return ((fabs(vals.translation.x) < err.translation.x) &&
+      (fabs(vals.translation.y) < err.translation.y) &&
+      (fabs(vals.rotation) < err.rotation));
+}
+
+void HTWKWalkModule::updateTarget() {
+  if (absLessThanError(targetPos,params.targetPosErrorAllowed) && absLessThanError(walkVel,targetVelErrorAllowed)) {
+    // we're done
+    hasTarget = false;
+    //std::cout << "DONE WITH TARGET" << std::endl;
+  }
+}
+
+void HTWKWalkModule::calcDesiredSpeed() {
+  if (kickingCurrently) // if currently kicking, do NOT change velocities
+    return;
+
+  Pose2D desiredSpeed;
+  Pose2D maxVelOdom(params.maxVel);
+  float maxBackOdom(params.maxBack);
+  //maxVelOdom.translation.x -= walk_request_->odometry_fwd_offset_;
+  //maxVelOdom.translation.y -= walk_request_->odometry_side_offset_;
+  //maxVelOdom.rotation -= walk_request_->odometry_turn_offset_;
+  //maxBackOdom -= walk_request_->odometry_fwd_offset_;
+
+  if (hasTarget) {
+    getDesiredVelForTarget(maxVelOdom,desiredSpeed);
+  } else if (walk_request_->percentage_speed_) {
+    desiredSpeed.translation.x = walk_request_->speed_.translation.x * maxVelOdom.translation.x;
+    desiredSpeed.translation.y = walk_request_->speed_.translation.y * maxVelOdom.translation.y;
+    desiredSpeed.rotation = walk_request_->speed_.rotation * maxVelOdom.rotation;
+  }
+
+  desiredSpeed.translation.x = crop(desiredSpeed.translation.x,maxBackOdom,maxVelOdom.translation.x);
+  desiredSpeed.translation.y = crop(desiredSpeed.translation.y,-maxVelOdom.translation.y,maxVelOdom.translation.y);
+  desiredSpeed.rotation = crop(desiredSpeed.rotation,-maxVelOdom.rotation,maxVelOdom.rotation);
+
+  Pose2D maxVelAccelCurrent(params.maxVelAccel);
+
+  if (fabs(avgBodyTiltError) > params.bodyTiltNoAccel) {
+    // don't accelerate
+    maxVelAccelCurrent = Pose2D(0,0,0);
+  }
+  
+  if (!freeze && (fabs(bodyTilt) > params.bodyTiltStop)) {
+    // stop as fast as possible
+    //desiredSpeed = Pose2D(0,0,0);
+    frozenVel = odometryThisStep.translation.x / (params.numFrames * 0.01f * 0.5);
+    if (frozenVel < 0.5 * walkVel.translation.x)
+      frozenVel = 0.5 * walkVel.translation.x;
+    std::cout << "staying at: " << frozenVel << " " << walkVel.translation.x << std::endl;
+    freeze = true;
+  }
+  if (freeze) {
+    walkVel.translation.x = frozenVel;
+  } else {
+
+
+  //std::cout << "prev speed: " << walkVel.translation.x << " " << walkVel.translation.y << " " << RAD_T_DEG * walkVel.rotation << std::endl;
+  // apply the changes
+  walkVel.translation.x = changeSpeed(walkVel.translation.x,desiredSpeed.translation.x,params.maxVelDecel.translation.x,maxVelAccelCurrent.translation.x);
+  walkVel.translation.y = changeSpeed(walkVel.translation.y,desiredSpeed.translation.y,params.maxVelDecel.translation.y,maxVelAccelCurrent.translation.y);
+  walkVel.rotation = changeSpeed(walkVel.rotation,desiredSpeed.rotation,params.maxVelDecel.rotation,maxVelAccelCurrent.rotation);
+  }
+  //std::cout << walkVel.translation << " " << desiredSpeed.translation <<std::endl;
+  //std::cout << "curr speed: " << walkVel.translation.x << " " << walkVel.translation.y << " " << RAD_T_DEG * walkVel.rotation << std::endl;
+
+  //walkVel.translation.x += crop(desiredSpeed.translation.x - walkVel.translation.x,minVelChangeCurrent.translation.x,maxVelChangeCurrent.translation.x);
+  //walkVel.translation.y += crop(desiredSpeed.translation.y - walkVel.translation.y,minVelChangeCurrent.translation.y,maxVelChangeCurrent.translation.y);
+  //walkVel.rotation += crop(desiredSpeed.rotation - walkVel.rotation,minVelChangeCurrent.rotation,maxVelChangeCurrent.rotation);
+  
+  // apply offsets
+  Pose2D walkVelOdom(walkVel);
+  // want to map 0 to -55 and 180 to 180
+  walkVelOdom.translation.x = walkVelOdom.translation.x * (params.maxVel.translation.x - walk_request_->odometry_fwd_offset_) / params.maxVel.translation.x + walk_request_->odometry_fwd_offset_;
+  walkVelOdom.translation.y = walkVelOdom.translation.y * (params.maxVel.translation.y - walk_request_->odometry_side_offset_) / params.maxVel.translation.y + walk_request_->odometry_side_offset_;
+  walkVelOdom.rotation = walkVelOdom.rotation * (params.maxVel.rotation - walk_request_->odometry_turn_offset_) / params.maxVel.rotation + walk_request_->odometry_turn_offset_;
+  //walkVelOdom.translation.y += walk_request_->odometry_side_offset_;
+  //walkVelOdom.rotation += walk_request_->odometry_turn_offset_;
+  
+  // convert to walkVec
+  walkVec = walkVelOdom;
+  walkVec.translation.x = walkVec.translation.x * params.maxVec.translation.x / params.maxVel.translation.x;
+  walkVec.translation.y = walkVec.translation.y * params.maxVec.translation.y / params.maxVel.translation.y;
+  walkVec.rotation = walkVec.rotation * params.maxVec.rotation / params.maxVel.rotation;
+  //walkVec.translation /= 1000.0f; // mm to meters
+  //walkVec = walkVec * params.numFrames * 0.01; // convert from vel to vec
+  //std::cout << "request: " << walk_request_->speed_.translation.x << " " << walk_request_->speed_.translation.y << " " << RAD_T_DEG * walk_request_->speed_.rotation << std::endl;
+  //std::cout << "pre: " << walkVec.translation.x << " " << walkVec.translation.y << " " << walkVec.rotation << std::endl;
+  
+  // TODO handle in velocities
+  if(walkVec.translation.x > min(speed,0.16f)-fabsf(walkVec.rotation)*0.5)
+    walkVec.translation.x = min(speed,0.16f)-fabsf(walkVec.rotation)*0.5;
+
+  if(walkVec.translation.x < -min(speed,0.10f)+fabsf(walkVec.rotation)*0.5)
+    walkVec.translation.x = -min(speed,0.10f)+fabsf(walkVec.rotation)*0.5;
+
+  if(walkVec.translation.y > max(0.f,min(speed*0.5f,0.05f)+min(0.f,walkVec.translation.x*0.3f)))
+    walkVec.translation.y = max(0.f,min(speed*0.5f,0.05f)+min(0.f,walkVec.translation.x*0.3f));
+
+  if(walkVec.translation.y < -max(0.f,min(speed*0.5f,0.05f)+min(0.f,walkVec.translation.x*0.3f)))
+    walkVec.translation.y = -max(0.f,min(speed*0.5f,0.05f)+min(0.f,walkVec.translation.x*0.3f));
+
+  if(walkVec.translation.x + fabsf(walkVec.translation.y) > 0.16){
+    walkVec.translation.x = min(speed,0.16f) - fabsf(walkVec.translation.y);
+  }
+  //std::cout << "des: " << desiredSpeed.translation.x << " " << desiredSpeed.translation.y << " " << desiredSpeed.rotation << std::endl;
+  //std::cout << "vel: " << walkVel.translation.x << " " << walkVel.translation.y << " " << walkVel.rotation << std::endl;
+  //std::cout << "post: " << walkVec.translation.x << " " << walkVec.translation.y << " " << walkVec.rotation << std::endl;
+}
+
+float HTWKWalkModule::changeSpeed(float last, float des, float maxDec, float maxInc) {
+  float delta = des - last;
+  int deltaSgn = sgn(delta);
+  float deltaAbs = fabs(delta);
+
+  // never more than the maxDec
+  if (deltaAbs > maxDec)
+    delta = deltaSgn * maxDec;
+  
+  if (((last >= 0) && (delta >= 0)) || ((last <= 0) && (delta <= 0))) {
+    // accelerating
+    if (deltaAbs > maxInc)
+      delta = deltaSgn * maxInc;
+  } else if (((last > 0) && (des < 0)) || ((last < 0) && (des > 0))) {
+    // changing directions
+    float maxDelta = max(fabs(last),maxInc);
+    if (deltaAbs > maxDelta);
+      delta = deltaSgn * maxDelta;
+  }
+
+  return last + delta;
+} 
+
+void HTWKWalkModule::calcJointAngles(float inFrame, float bodyTiltError, float bodyRollError, float outAngles[NUM_JOINTS]) {
+  float cnt = inFrame / (float)params.numFrames;
+
+  //if (bodyTilt > 0) {
+    //bodyTilt *= 0.75;
+  //}
+
+  float angles[NUM_JOINTS];
+  for(int i = 0;i < NUM_JOINTS;i++){
+    angles[i] = iniAngles[i];
+  }
+  float damp = (params.startLength - dampStop) / params.startLength;
+  //    float damp=cnt/40.f;
+  damp = minmax(damp, 0, 1);
+  if(dampStop > 0){
+    dampStop--;
+  }
+  if (dampGyro > 0)
+    dampGyro -= 0.5;
+  bodyTiltError = ((100 - dampGyro) / 100.0) * bodyTiltError;
+
+  // cnt goes from 0 to 1 in 44 steps
+  // phase trunk goes from -pi to pi
+  // phase legR goes from -pi to pi, but is pi/2 behind trunk
+  // phase legL goes from -pi to pi, but is pi/2 ahead trunk
+  float phaseTrunk = cnt  * M_PI * 2 - M_PI;
+  float phaseLegR = phaseTrunk - M_PI_2;
+  if(phaseLegR < -M_PI)
+    phaseLegR += M_PI * 2;
+
+  if(phaseLegR > M_PI)
+    phaseLegR -= M_PI * 2;
+
+  float phaseLegL = phaseTrunk + M_PI_2;
+  if(phaseLegL < -M_PI)
+    phaseLegL += M_PI * 2;
+
+  if(phaseLegL > M_PI)
+    phaseLegL -= M_PI * 2;
+
+  float RHipRoll = swing * sin(phaseLegR);
+  float LHipRoll = swing * sin(phaseLegL);
+  // shortening of swing leg
+  float phaseShortR = vShort * (phaseLegL + M_PI_2 + oShort);
+  float phaseShortL = vShort * (phaseLegR + M_PI_2 + oShort);
+  float shortR = knee;
+  if(phaseShortR > -M_PI && phaseShortR < M_PI)
+    shortR += aShort * 0.5 * (cos(phaseShortR) + 1);
+
+  float shortL = knee;
+  if(phaseShortL > -M_PI && phaseShortL < M_PI)
+    shortL += aShort * 0.5 * (cos(phaseShortL) + 1);
+
+  float b = (2 / (2 * M_PI * vSwing - M_PI));
+  
+  float phaseSwingR = vSwing * (phaseLegR + M_PI_2 + oSwing); // eq 12
+  // eq 13
+  float fSwingR;
+  if(-M_PI_2 <= phaseSwingR && phaseSwingR < M_PI_2){
+    fSwingR = sin(phaseSwingR);
+  } else if(M_PI_2 <= phaseSwingR){
+    fSwingR = -(b * (phaseSwingR - M_PI_2) - 1);
+  } else {
+    fSwingR = -(b * (phaseSwingR + M_PI_2) + 1);
+  }
+
+  float phaseSwingL = vSwing * (phaseLegL + M_PI_2 + oSwing); // eq 12
+  // eq 13
+  float fSwingL;
+  if(-M_PI_2 <= phaseSwingL && phaseSwingL < M_PI_2){
+    fSwingL = sin(phaseSwingL);
+  } else if(M_PI_2 <= phaseSwingL){
+    fSwingL = -(b * (phaseSwingL - M_PI_2) - 1);
+  } else {
+    fSwingL = -(b * (phaseSwingL + M_PI_2) + 1);
+  }
+
+  // for first step
+  shortR *= damp;
+  shortL *= damp;
+  RHipRoll *= damp;
+  LHipRoll *= damp;
+  Pose2D walkVecInt = walkVec * damp; // damp the velocities
+
+  float leftAnkleHack = 0;
+  float rightAnkleHack = 0;
+  
+  if (params.useAnkleTiltHack) {
+    int framesInStep;
+    if (frame < params.stanceSwitch1)
+      framesInStep = frame + params.numFrames - params.stanceSwitch2;
+    else if (frame < params.stanceSwitch2)
+      framesInStep = frame - params.stanceSwitch1;
+    else // frame >= params.stanceSwitch2
+      framesInStep = frame - params.stanceSwitch2;
+    float phi = framesInStep / (params.numFrames * 0.5);
+    //phi = crop(phi,0,1.0);
+    //float amt = -3 * DEG_T_RAD;
+    float hackSwing = params.ankleTiltHackSwingAmount * (0.5 + 0.5 * cos(2 * M_PI * phi + M_PI));
+    float hackStance = params.ankleTiltHackStanceAmount * (0.5 + 0.5 * cos(2 * M_PI * phi + M_PI));
+    //std::cout << phi << " " << hackSwing << " " << hackStance  << std::endl;
+
+    if (leftStance) {
+      rightAnkleHack = hackSwing;
+      leftAnkleHack = hackStance;
+    } else {
+      leftAnkleHack = hackSwing;
+      rightAnkleHack = hackStance;
+    }
+  }
+
+  angles[8] = -shortR * 0.5f + params.balanceHipPitch * bodyTiltError * damp + walkVec.translation.x * fSwingR; // LHipPitch
+  angles[14] = -shortL * 0.5f + params.balanceHipPitch * bodyTiltError * damp + walkVec.translation.x * fSwingL; // RHipPitch
+  angles[9] = shortR + 0.2f + params.balanceKneePitch * bodyTiltError * damp; // LKneePitch
+  angles[15] = shortL + 0.2f + params.balanceKneePitch * bodyTiltError * damp; // RKneePitch
+  angles[10] = -shortR * (0.5f) - 0.18f - walkVec.translation.x * fSwingR + leftAnkleHack; // LAnklePitch
+  angles[16] = -shortL * (0.5f) - 0.18f - walkVec.translation.x * fSwingL + rightAnkleHack; // RAnklePitch
+  angles[7] = RHipRoll + 0.02f + params.balanceHipRoll * bodyRollError * damp - walkVec.translation.y * fSwingR + fabsf(walkVec.translation.y * 0.5f);  // LHipRoll
+  angles[13] = -LHipRoll - 0.02f + params.balanceHipRoll * bodyRollError * damp + walkVec.translation.y * fSwingR - fabsf(walkVec.translation.y * 0.5f);  // RHipRoll
+  angles[11] = -RHipRoll - 0.02f + params.balanceAnkleRoll * bodyRollError * damp + walkVec.translation.y * fSwingR - fabsf(walkVec.translation.y * 0.5f); // LAnkleRoll
+  angles[17] = LHipRoll + 0.02f + params.balanceAnkleRoll * bodyRollError * damp - walkVec.translation.y * fSwingR + fabsf(walkVec.translation.y * 0.5f); // RAnkleRoll
+  angles[6] = (-walkVec.rotation) * (fSwingL - fSwingR); // LHipYawPitch
+  angles[12] = (-walkVec.rotation) * (fSwingL - fSwingR); // RHipYawPitch
+  angles[8] -= .75f * (-walkVec.rotation) * (fSwingL - fSwingR); // LHipPitch
+  angles[14] -= .75f * (-walkVec.rotation) * (fSwingL - fSwingR); // RHipPitch
+/* 
+  if (leftStance) {
+    rightAnkleOffset = -0.05 * tiltError;
+    if (rightAnkleOffset > 0)
+      rightAnkleOffset = 0;
+    leftAnkleOffset *= 0.8;
+  } else {
+    leftAnkleOffset = -0.05 * tiltError;
+    if (leftAnkleOffset > 0)
+      leftAnkleOffset = 0;
+    rightAnkleOffset *= 0.8;
+  }
+
+  angles[10] += leftAnkleOffset; // LAnklePitch
+  angles[16] += rightAnkleOffset; // RAnklePitch
+*/
+  //if(bodyTilt > FALL_THRESHOLD || bodyTilt < -FALL_THRESHOLD || bodyRoll > FALL_THRESHOLD || bodyRoll < -FALL_THRESHOLD){
+    //for(int i = 0;i < NUM_JOINTS;i++){
+      //set_stiff(i,0,0);
+      //set_pos(i,iniAngles[i],0);
+    //}
+  //}
+  setOutAngles(angles,outAngles);
+}
+
+void HTWKWalkModule::stand() {
+  // always send stiffness in stand (safety in case someone else is sending stiffness commands)
+  initStiffness(1.0,true);
+  // keep sending the stand commands too, sometimes doesn't work otherwise
+  if (lastStandSendTime + STAND_TIME <= frame_info_->seconds_since_start) {
+    lastStandSendTime = frame_info_->seconds_since_start;
+    setOutAngles(iniAngles,commands_->angles_);
+    //calcJointAngles(11,0,0,commands_->angles_);
+    setArms(commands_->angles_,STAND_TIME);
+    commands_->send_body_angles_ = true;
+    commands_->body_angle_time_ = 1000 * STAND_TIME;
+  }
+}
+  
+void HTWKWalkModule::calcOpenLoop(int inFrame, float bodyTiltError, float bodyRollError, Pose3D &leftTarget, Pose3D &rightTarget) {
+  Joints angles;
+  calcJointAngles(inFrame,bodyTiltError,bodyRollError,angles);
+  ForwardKinematics::calculateRelativePose(angles, 0, 0, commandBodyModel.rel_parts_, robot_info_->dimensions_);
+
+  leftTarget = commandBodyModel.rel_parts_[BodyPart::left_foot];
+  rightTarget = commandBodyModel.rel_parts_[BodyPart::right_foot];
+}
+
+void HTWKWalkModule::applyClosedLoop(Pose3D &leftTarget, Pose3D &rightTarget, DelayedInfo &delayed) {
+  /*
+  if (! freezeStep) {
+    if (fabs(bodyTilt) > params.bodyTiltStop) {
+      freezeStep = true;
+      if (leftStance)
+        frozenDiff = rightTarget.translation.x - leftTarget.translation.x;
+      else
+        frozenDiff = leftTarget.translation.x - rightTarget.translation.x;
+    }
+  }
+  if (freezeStep) {
+    if (leftStance) {
+      rightTarget.translation.x = leftTarget.translation.x + frozenDiff;
+    } else {
+      leftTarget.translation.x = rightTarget.translation.x + frozenDiff;
+    }
+  }
+
+  if (freezeStepPrev) { 
+    float frac = (0.5 + 0.5 * cos(M_PI * prevHackFrac));
+    float dx = frozenDiffPrev * frac;
+    if (leftStance) {
+      leftTarget.translation.x += dx;
+    } else {
+      rightTarget.translation.x += dx;
+    }
+  }
+  */
+
+  // get the sensor estimates
+  Pose3D sensorLeft, sensorRight;
+  Vector2<float> sensorZmp;
+  getSensorEstimates(sensorLeft,sensorRight,sensorZmp);//,delayed.globalFrameOffset,delayed.leftStance);
+/*
+  //getSensorEstimates(sensorCom,sensorZmp,globalFrameOffset,leftStance); // TODO FIXME XXX
+  Pose3D sensorCom3;
+  if (delayed.leftStance)
+    sensorCom3 = sensorLeft;
+  else
+    sensorCom3 = sensorRight;
+  sensorCom3.translation *= -1;
+  sensorCom3.rotation.invert();
+  Pose2D sensorCom(sensorCom3.rotation.getZAngle(),sensorCom3.translation.x,sensorCom3.translation.y);
+  // convert zmp to stance frame (from torso)
+  sensorZmp = sensorZmp.relativeToGlobal(sensorCom.translation,sensorCom.rotation);
+  // convert zmp to global frame
+  sensorZmp = sensorZmp.relativeToGlobal(delayed.globalFrameOffset.translation,delayed.globalFrameOffset.rotation);
+  // convert com to global frame
+  sensorCom = sensorCom.relativeToGlobal(delayed.globalFrameOffset);
+  
+  // convert to stance frame
+  //delayed.com = delayed.com.globalToRelative(delayed.globalFrameOffset);
+  //delayed.zmp = delayed.zmp.globalToRelative(delayed.globalFrameOffset.translation,delayed.globalFrameOffset.rotation);
+  //sensorCom = sensorCom.globalToRelative(delayed.globalFrameOffset);
+  //sensorZmp = sensorZmp.globalToRelative(delayed.globalFrameOffset.translation,delayed.globalFrameOffset.rotation);
+
+  // get the errors in the stance frame
+  //Vector2<float> comError = delayed.com.translation - sensorCom.translation;
+  Vector2<float> zmpError = delayed.zmp - sensorZmp;
+  static Vector2<float> zmpErrorSum(0,0);
+  //zmpErrorSum.x += abs(zmpError.x);
+  //zmpErrorSum.y += abs(zmpError.y);
+  //std::cout << "errsum: " << zmpErrorSum.x << " " << zmpErrorSum.y << std::endl;
+  //Pose2D frame(delayed.globalFrameOffset.rotation,0,0);
+  //comError = comError.globalToRelative(frame);
+  //zmpError = zmpError.globalToRelative(frame.translation,frame.rotation);
+*/  
+#ifdef USE_POS_LOOP
+  Vector3<float> leftAdj;
+  Vector3<float> rightAdj;
+
+  Vector3<float> leftError = delayed.leftCom.translation - sensorLeft.translation;
+  Vector3<float> rightError = delayed.rightCom.translation - sensorRight.translation;
+#ifdef USE_PAST_POS_LOOP
+  float updateRate = 0.5;//0.75;
+  //leftPosAdjustments[delayed.frame] += (leftAdj - leftPosAdjustments[delayed.frame]) * updateRate;
+  //rightPosAdjustments[delayed.frame] += (rightAdj - rightPosAdjustments[delayed.frame]) * updateRate;
+  //leftPosAdjustments[delayed.frame] += leftAdj * updateRate;
+  //rightPosAdjustments[delayed.frame] += rightAdj * updateRate;
+  //leftPosAdjustments[delayed.frame] += leftError * updateRate;
+  leftPosAdjustments[delayed.frame] += (leftError - leftPosAdjustments[delayed.frame]) * updateRate;
+  rightPosAdjustments[delayed.frame] += (rightError - rightPosAdjustments[delayed.frame]) * updateRate;
+  //rightPosAdjustments[delayed.frame] += rightError * updateRate;
+  //std::cout << "stored left adj: " << leftPosAdjustments[delayed.frame] << std::endl;
+  //std::cout << "stored right adj: " << rightPosAdjustments[delayed.frame] << std::endl;
+  //leftTarget.translation += leftPosAdjustments[frame];
+  //rightTarget.translation += rightPosAdjustments[frame];
+  
+  leftError += leftPosAdjustments[frame];
+  rightError += rightPosAdjustments[frame];
+#endif
+  for (int i = 0; i < 3; i++) {
+    leftAdj[i] += filterLeftPos[i].update(leftError[i]);
+    rightAdj[i] += filterLeftPos[i].update(rightError[i]);
+  }
+  leftTarget.translation += leftAdj;
+  rightTarget.translation += rightAdj;
+#endif
+/*
+  //Vector3<float> leftComError(0,0);
+  //Vector3<float> leftZmpError(0,0);
+  //Vector3<float> rightComError(0,0);
+  //Vector3<float> rightZmpError(0,0);
+  //if (leftStance) {
+    //leftComError = comError;
+    //leftZmpError = zmpError;
+  //} else {
+    //rightComError = comError;
+    //rightZmpError = zmpError;
+  //}
+
+  //Vector3<float> dLeft;
+  //Vector3<float> dRight;
+//#ifdef USE_POS_LOOP
+  //for (int i = 0; i < 2; i++) { // for both x and y
+    //dLeft[i] = filterLeftPos[i].update(leftComError[i]);
+    //dRight[i] = filterRightPos[i].update(rightComError[i]);
+  //}
+  //leftTarget.translation += dLeft;
+  //rightTarget.translation += dRight;
+//#endif
+  
+  //if (delayed.leftStance)
+    //std::cout << "dr 0 -54 0" << std::endl;
+  //else
+    //std::cout << "dr 0 54 0" << std::endl;
+  //if (leftStance)
+    //std::cout << "dl 0 -54 0" << std::endl;
+  //else
+    //std::cout << "dl 0 54 0" << std::endl;
+  //std::cout << "dl " << comError.x << " " << comError.y << " " << 0 << std::endl;
+
+  //std::cout << "dl " << dLeft.x << " " << dLeft.y << " " << 0 << std::endl;
+  //std::cout << "dr " << dRight.x << " " << dRight.y << " " << 0 << std::endl;
+
+  // filter the errors into changes
+  //for (int i = 0; i < 2; i++) { // for both x and y
+//#ifdef USE_POS_LOOP
+    //leftTarget.translation[i] += filterLeftPos[i].update(leftComError[i]);
+    //rightTarget.translation[i] += filterRightPos[i].update(rightComError[i]);
+//#endif
+//#ifdef USE_FSR_LOOP
+    //float front = sensors_->fsr_right_front_ + sensors_->fsr_left_front_; // front - back
+    //float side  = sensors_->fsr_right_side_ + sensors_->fsr_left_side_; // left - right
+    //front = filterLeftZmp[0].update(front);
+    //side = filterLeftZmp[1].update(side);
+    ////std::cout << side << std::endl;
+    ////leftTarget.rotation.rotateX(side);
+    ////rightTarget.rotation.rotateX(side);
+    //std::cout << front << std::endl;
+    //leftTarget.rotation.rotateY(front);
+    //rightTarget.rotation.rotateY(front);
+    ////leftTarget.translation.y += side;
+    ////rightTarget.translation.y += side;
+    ////leftTarget.translation.x += front;
+    ////rightTarget.translation.x += front;
+//#endif
+  //}
+  
+  static Vector2<float> lastDesiredCom(0,0);
+  static Vector2<float> lastSensorCom(0,0);
+  Pose2D delayedCom(delayed.com.rotation.getZAngle(),delayed.com.translation.x,delayed.com.translation.y);
+  float timePassed = params.frameInc * 0.01;
+
+  Vector2<float> desiredVel = (delayedCom.translation - lastDesiredCom) / timePassed;
+  Vector2<float> sensorVel = (sensorCom.translation - lastSensorCom) / timePassed;
+  lastDesiredCom = delayedCom.translation;
+  lastSensorCom = sensorCom.translation;
+
+  static RingBufferWithSum<Vector2<float>,5> desiredVelBuffer;
+  static RingBufferWithSum<Vector2<float>,5> sensorVelBuffer;
+  desiredVelBuffer.add(desiredVel);
+  sensorVelBuffer.add(sensorVel);
+  desiredVel = desiredVelBuffer.getAverage();
+  sensorVel = sensorVelBuffer.getAverage();
+
+  Vector2<float> desiredEnergy;
+  Vector2<float> sensorEnergy;
+  desiredEnergy.x = 0.5 * sqr(desiredVel.x) - 0.5 * sqr(delayedCom.translation.x - delayed.zmp.x);
+  desiredEnergy.y = 0.5 * sqr(desiredVel.y) - 0.5 * sqr(delayedCom.translation.y - delayed.zmp.y);
+  sensorEnergy.x = 0.5 * sqr(sensorVel.x) - 0.5 * sqr(sensorCom.translation.x - sensorZmp.x);
+  sensorEnergy.y = 0.5 * sqr(sensorVel.y) - 0.5 * sqr(sensorCom.translation.y - sensorZmp.y);
+  //desiredEnergy.x = 0.5 * sqr(desiredVel.x);
+  //desiredEnergy.y = 0.5 * sqr(desiredVel.y);
+  //sensedEnergy.x = 0.5 * sqr(delayedCom.translation.x - delayed.zmp.x);
+  //sensedEnergy.y = 0.5 * sqr(delayedCom.translation.y - delayed.zmp.y);
+  
+  static RingBufferWithSum<Vector2<float>,10> zmpBuffer;
+  zmpBuffer.add(sensorZmp);
+  sensorZmp = zmpBuffer.getAverage();
+  
+  float bodyRoll = sensors_->values_[angleX];
+  float bodyTilt = sensors_->values_[angleY];
+  //float bodyTilt = -0.0005 * (sensorZmp.x - (globalFrameOffset.translation.x + 55.0));
+  //if (bodyTilt < 0)
+    //bodyTilt = 0;
+  
+  calcOpenLoop(frame,bodyTilt,bodyRoll,leftTarget,rightTarget);
+  
+  //std::cout << "dl " << delayed.left.translation << std::endl;
+  //std::cout << "sl " << sensorLeft.translation << std::endl;
+  //std::cout << "dr " << delayed.right.translation << std::endl;
+  //std::cout << "sr " << sensorRight.translation << std::endl;
+  //std::cout << "sc " << sensorCom.translation.x << " " << sensorCom.translation.y << " " << sensorCom.rotation << std::endl;
+  //std::cout << "dc " << delayed.com.translation.x << " " << delayed.com.translation.y << " " << delayed.com.rotation.getZAngle() << std::endl;
+  //////std::cout << "e " << comError.x << " " << comError.y << " " << "0" << std::endl;
+  //std::cout << "sz " << sensorZmp.x << " " << sensorZmp.y << " " << 0 << std::endl;
+  //std::cout << "stance " << delayed.globalFrameOffset.translation.x << " " << delayed.globalFrameOffset.translation.y << " " << delayed.globalFrameOffset.rotation << std::endl;
+  //std::cout << "tr " << sensors_->values_[angleY] << " " << sensors_->values_[angleX] << " " << 0 << std::endl;
+  //std::cout << "dz " << delayed.zmp.x << " " << delayed.zmp.y << " " << 0 << std::endl;
+  //std::cout << "dv " << desiredVel.x << " " << desiredVel.y << " " << 0 << std::endl;
+  //std::cout << "sv " << sensorVel.x << " " << sensorVel.y << " " << 0 << std::endl;
+  //std::cout << "de " << desiredEnergy.x << " " << desiredEnergy.y << " " << 0 << std::endl;
+  //std::cout << "se " << sensorEnergy.x << " " << sensorEnergy.y << " " << 0 << std::endl;
+*/
+}
+
+void HTWKWalkModule::getDelayedInfo(DelayedInfo &delayed) {
+  // TODO check if delay is right now (changed > to >=)
+  if (delayedInfos.getNumberOfEntries() >= params.sensorDelayProp) {
+    delayed = delayedInfos.pop();
+  } else {
+    delayed = delayedInfos.front();
+  }
+  if (delayedZmps.getNumberOfEntries() >= params.sensorDelayFsr) {
+    delayed.zmp = delayedZmps.pop();
+  } else {
+    delayed.zmp = delayedZmps.front();
+  }
+}
+
+void HTWKWalkModule::getCom(bool leftStance, Pose3D bodyParts[], Pose3D &com) {
+  // gets com relative to stance leg
+  Pose3D left, right;
+  getPos(bodyParts,left,right);
+
+  if (leftStance)
+    com = left;
+  else
+    com = right;
+  com.translation *= -1;
+  com.rotation.invert();
+
+  //Pose3D torso = bodyModel->rel_parts_[BodyPart::torso];
+
+  //if (leftStance)
+    //com = torso.globalToRelative(left);
+  //else
+    //com = torso.globalToRelative(right);
+
+  //com = bodyModel->rel_parts_[BodyPart::torso].translation - bodyModel->rel_parts_[stance].translation;
+  //com.translation = bodyModel->rel_parts_[BodyPart::torso].rotation.invert() * com.translation;
+  //com.rotation.rotateZ(bodyModel->rel_parts_[BodyPart::torso].rotation.getZAngle() - bodyModel->rel_parts_[stance].rotation.getZAngle());
+}
+
+void HTWKWalkModule::getPos(Pose3D bodyParts[], Pose3D &left, Pose3D &right) {
+  left = bodyParts[BodyPart::left_foot];
+  right = bodyParts[BodyPart::right_foot];
+
+  //left.translation = bodyModel->rel_parts_[BodyPart::torso].rotation.invert() * left.translation;
+  //left.rotation.rotateZ(bodyModel->rel_parts_[BodyPart::torso].rotation.getZAngle() - bodyModel->rel_parts_[BodyPart::left_foot].rotation.getZAngle());
+  //right.translation = bodyModel->rel_parts_[BodyPart::torso].rotation.invert() * right.translation;
+  //right.rotation.rotateZ(bodyModel->rel_parts_[BodyPart::torso].rotation.getZAngle() - bodyModel->rel_parts_[BodyPart::right_foot].rotation.getZAngle());
+}
+
+void HTWKWalkModule::getPos(Pose3D bodyParts[], Pose2D &left, Pose2D &right) {
+  left.translation.x = bodyParts[BodyPart::left_foot].translation.x;
+  left.translation.y = bodyParts[BodyPart::left_foot].translation.y;
+  left.rotation = bodyParts[BodyPart::left_foot].rotation.getZAngle();
+  right.translation.x = bodyParts[BodyPart::right_foot].translation.x;
+  right.translation.y = bodyParts[BodyPart::right_foot].translation.y;
+  right.rotation = bodyParts[BodyPart::right_foot].rotation.getZAngle();
+}
+  
+void HTWKWalkModule::getSensorEstimates(Pose3D &left, Pose3D &right, Vector2<float> &zmp) {
+  // in their natural frames
+  getPos(body_model_->rel_parts_,left,right);
+  zmp = body_model_->zmpFromFSRs;
+  // convert com frame to stance frame for zmp
+  // TODO ZMP FRAME OF REFERENCE
+  //zmp.x += com.translation.x;
+  //zmp.y += com.translation.y;
+  //zmp = zmp.relativeToGlobal(com.translation,com.rotation);
+  //zmp = zmp.globalToRelative(com.translation,com.rotation);
+  // convert to global frame
+  //com = com.relativeToGlobal(globalFrameOffset);
+
+  //std::cout << "co " << com.translation.x << " " << com.translation.y << " " <<< com.rotation << std::endl;
+  
+  //std::cout << "cf " << com.translation.x << " " << com.translation.y << " " <<< com.rotation << std::endl;
+
+  //zmp = zmp.relativeToGlobal(globalFrameOffset.translation,globalFrameOffset.rotation);
+  //convertRelativeToGlobal(zmp,globalFrameOffset);
+}
+
+void HTWKWalkModule::setArms(Joints angles, float timeInSeconds) {
+  if (timeInSeconds < 0.1) {
+    timeInSeconds = 0.1;
+  }
+
+  int state = 1;
+  const float maxDelta = DEG_T_RAD * 60 * timeInSeconds; // 30 degrees / s
+
+  for (int i = 0; i < 2; i++) {
+    int shoulderPitch = LShoulderPitch;
+    int shoulderRoll = LShoulderRoll;
+    int elbowYaw = LElbowYaw;
+    if (i == 1) {
+      shoulderPitch = RShoulderPitch;
+      shoulderRoll = RShoulderRoll;
+      elbowYaw = RElbowYaw;
+    }
+    if ((joints_->values_[shoulderRoll] > DEG_T_RAD * 30) || // arm is up (from cross)
+        (joints_->values_[shoulderPitch] > DEG_T_RAD * -90)) { // arm is in front
+      state = 0;
+      break;
+    }
+    if (joints_->values_[elbowYaw] > DEG_T_RAD * 0)
+      state = 2; // don't break, state 0 still takes precedence
+  }
+
+  // goal keeper only does state 0 ever
+  if (walk_request_->keep_arms_out_){
+    state = 0;
+  }
+
+  if (state <= 1) {
+    angles[LShoulderPitch] = DEG_T_RAD * -116;
+    angles[LShoulderRoll] = DEG_T_RAD * 12;
+    angles[LElbowYaw] = DEG_T_RAD * -85;
+    angles[LElbowRoll] = DEG_T_RAD * -0;
+    angles[RShoulderPitch] = DEG_T_RAD * -116;
+    angles[RShoulderRoll] = DEG_T_RAD * 12;
+    angles[RElbowYaw] = DEG_T_RAD * -85;
+    angles[RElbowRoll] = DEG_T_RAD * -0;
+    if (state == 1) {
+      angles[LElbowYaw] = DEG_T_RAD * 25;
+      angles[RElbowYaw] = DEG_T_RAD * 25;
+    }
+  } else {
+   /**
+    angles[LShoulderPitch] = DEG_T_RAD * -116;
+    angles[LShoulderRoll] = DEG_T_RAD * -2;
+    angles[LElbowYaw] = DEG_T_RAD * 25;
+    angles[LElbowRoll] = DEG_T_RAD * -53;
+    angles[RShoulderPitch] = DEG_T_RAD * -116;
+    angles[RShoulderRoll] = DEG_T_RAD * -2;
+    angles[RElbowYaw] = DEG_T_RAD * 25;
+    angles[RElbowRoll] = DEG_T_RAD * -53;
+   */
+     angles[LShoulderPitch] = DEG_T_RAD * -116;
+    angles[LShoulderRoll] = DEG_T_RAD * 8;
+    angles[LElbowYaw] = DEG_T_RAD * 25;
+    angles[LElbowRoll] = DEG_T_RAD * -53;
+    angles[RShoulderPitch] = DEG_T_RAD * -116;
+    angles[RShoulderRoll] = DEG_T_RAD * 8;
+    angles[RElbowYaw] = DEG_T_RAD * 25;
+    angles[RElbowRoll] = DEG_T_RAD * -53;
+  }
+
+  for (int i = LShoulderPitch; i <= RElbowRoll; i++) {
+    float delta = angles[i] - joints_->values_[i];
+    delta = crop(delta,-maxDelta,maxDelta);
+    angles[i] = joints_->values_[i] + delta;
+  }
+}
+
+void HTWKWalkModule::calcKickSpline(WalkKickSpline &splineParams) {
+  int sign = 1;
+  if (!leftStance)
+    sign = -1;
+  double yswing[MAX_NUM_WALK_KICK_SPLINE_PTS];
+  double ystance[MAX_NUM_WALK_KICK_SPLINE_PTS];
+  for (int i = 0; i < splineParams.numPts; i++) {
+    yswing[i] = sign * splineParams.yswing[i];
+    ystance[i] = sign * splineParams.ystance[i];
+  }
+  swing_spline_.set(splineParams.numPts,splineParams.times,splineParams.xswing,yswing,splineParams.zswing,true);
+  stance_spline_.set(splineParams.numPts,splineParams.times,splineParams.xstance,ystance,splineParams.zstance,true);
+}
+
+void HTWKWalkModule::applyKick(int inFrame, Pose3D &leftTarget, Pose3D &rightTarget) {
+  // cnt goes from 0 to 21 and represents the frame in the step
+  float cnt = inFrame-params.stanceSwitch1;
+  if (leftStance == false && inFrame < params.stanceSwitch1) {
+    cnt = params.stanceSwitch1 + inFrame;
+  } else if (leftStance == false && inFrame >= params.stanceSwitch2) {
+    cnt = inFrame - params.stanceSwitch2;
+  }
+
+  Vector3<float> swing,stance;
+  swing_spline_.calc(cnt,swing);
+  //stance_spline_.calc(cnt,stance);
+  if (leftStance) {
+    rightTarget = rightTarget.translate(swing);
+    //leftTarget = leftTarget.translate(stance);
+  } else {
+    leftTarget = leftTarget.translate(swing);
+    //rightTarget = rightTarget.translate(stance);
+  }
+
+  // reset when done
+  if (inFrame == (params.stanceSwitch2 - 1) || inFrame == (params.stanceSwitch1 - 1)) {
+    kickingCurrently = false;
+    kickRequested = false;
+  }
+}
+
+void HTWKWalkModule::updateTime() {
+  frame += params.frameInc;
+  if(frame >= params.numFrames) {
+    frame -= params.numFrames;
+  }
+} 
+
+void HTWKWalkModule::reset() {
+  dampStop = params.startLength;
+
+  frame = params.stanceSwitch1;
+  dampGyro = 100;
+
+  swing = 0.0457f;
+  knee  = 0.158f;
+
+  vShort =  2.1f;
+  aShort =  0.35f;
+  oShort = -1.18f;
+
+  vSwing =  0.738f;
+  oSwing = -0.82f;
+
+  speed = 0.16;
+  
+  globalFrameOffset = Pose2D(0,0,0);
+  walkVel = Pose2D(0,0,0);
+  leftAnkleOffset = 0;
+  rightAnkleOffset = 0;
+  leftStanceOdom = false;
+  globalFrameOffsetOdom = globalFrameOffset;
+  calculateGlobalTorsoLocation();
+  walk_mem_->global_to_odometry_frame_offset_ = globalSensedTorso;
+}
+
+void HTWKWalkModule::setOutAngles(const float angles[NUM_JOINTS],float outAngles[NUM_JOINTS]) {
+  
+  for (int i = 2; i < NUM_JOINTS; i++) {
+    int ind = jointMapping[i];
+    outAngles[ind] = robot_joint_signs[ind] * angles[i];
+  }
+}
+
+void HTWKWalkModule::initStiffness(float val, bool force) {
+
+  // only if its changed
+  if (!force && (walk_mem_->current_stiffness_ == val))
+    return;
+
+  // initialize the stiffnesses
+  commands_->send_stiffness_ = true;
+  commands_->stiffness_time_ = 10;
+  for (int i = 0; i < NUM_JOINTS; i++)
+    commands_->stiffness_[i] = val;
+  commands_->stiffness_[HeadPitch] = 1.0;
+  commands_->stiffness_[HeadYaw] = 1.0;
+
+  walk_mem_->current_stiffness_ = val;
+
+  //commands_->stiffness_[LAnkleRoll] = 0.525;
+  //commands_->stiffness_[RAnkleRoll] = 0.525;
+  //commands_->stiffness_[LAnklePitch] = 0.525;
+  //commands_->stiffness_[RAnklePitch] = 0.525;
+  //commands_->stiffness_[LKneePitch] = 0.60;
+  //commands_->stiffness_[RKneePitch] = 0.60;
+  //commands_->stiffness_[LShoulderPitch] = 0;
+  //commands_->stiffness_[LShoulderRoll] = 0;
+  //commands_->stiffness_[RShoulderPitch] = 0;
+  //commands_->stiffness_[RShoulderRoll] = 0;
+}
+
+
+void HTWKWalkModule::initWalk() {
+  initStiffness(1.0,true);
+  odometryThisStep = Pose2D(0,0,0);
+  reset();
+}
+
+void HTWKWalkModule::processWalkRequest() {
+  //if (!body_model_->feet_on_ground_ && (walk_request_->motion_ == WalkRequestBlock::WALK)) {
+    //// stand if the feet aren't on the ground
+    //walk_request_->motion_ = WalkRequestBlock::STAND;
+  //}
+
+  walk_mem_->motion_prev_ = walk_mem_->motion_current_;
+  if (!walk_request_->new_command_)
+    return;
+  // handle transition from walking to standing smoothly
+  if ((walk_request_->motion_ == WalkRequestBlock::STAND) && (walk_mem_->motion_prev_ == WalkRequestBlock::WALK)) {
+    if ((fabs(walkVel.translation.x) > 0.1 * params.maxVel.translation.x) ||
+        (fabs(walkVel.translation.y) > 0.1 * params.maxVel.translation.y) ||
+        (fabs(walkVel.rotation) > 0.1 * params.maxVel.rotation) ||
+        ((abs(frame - params.stanceSwitch1) > 1) && (abs(frame - params.stanceSwitch2) > 1))) { // don't change if we're in the middle of a step
+      // continue previous motion
+      walk_request_->speed_ = Pose2D(0,0,0);
+    } else {
+      walk_mem_->motion_current_ = WalkRequestBlock::STAND;
+    }
+  } else {
+    walk_mem_->motion_current_ = walk_request_->motion_;
+  }
+
+  if (standRequired && (frame_info_->seconds_since_start - standRequiredStart > 1.5))
+    standRequired = false;
+
+  if (walk_request_->motion_ == WalkRequestBlock::WALK) {
+    if (((joints_->values_[RKneePitch] > DEG_T_RAD * 90) || (joints_->values_[LKneePitch] > DEG_T_RAD * 90)) && (!standRequired)) {
+      standRequired = true;
+      standRequiredStart = frame_info_->seconds_since_start;
+    }
+  }
+  if (standRequired)
+    walk_mem_->motion_current_ = WalkRequestBlock::STAND;
+
+  if (!kickRequested) {
+    kickRequested = walk_request_->perform_kick_;
+    kickWithLeft = walk_request_->kick_with_left_;
+    kickHeading = walk_request_->kick_heading_;
+  }
+  
+  if (walk_request_->walk_to_target_) {
+    // target pos is rel to torso
+    targetPos = walk_request_->target_point_;
+    // convert to global
+    //targetPos = targetPos.relativeToGlobal(globalSensedTorso);
+
+    //int framesLeftInStep;
+    //if (frame < params.stanceSwitch1)
+      //framesLeftInStep = params.stanceSwitch1 - frame;
+    //else if (frame < params.stanceSwitch2)
+      //framesLeftInStep = params.stanceSwitch2 - frame;
+    //else // frame >= params.stanceSwitch2
+      //framesLeftInStep = params.stanceSwitch1 + params.numFrames - frame;
+    //targetPos.translation.x += walkVel.translation.x * framesLeftInStep * 0.01; // 0.5 because numFrames is 2 steps, and 0.01 because 100 frames/sec
+    //targetPos.translation.y += walkVel.translation.y * framesLeftInStep * 0.01; // 0.5 because numFrames is 2 steps, and 0.01 because 100 frames/sec
+    // TODO IGNORING ROTATION
+  
+    //std::cout << "setting target: " << targetPos.translation << std::endl;
+    hasTarget = true;
+  }  else {
+    hasTarget = false;
+  }
+   
+}
+
+void HTWKWalkModule::updateOdometry() {
+  // save where torso was last time vision updated odom
+  //if (odometry_->displacement.translation.x == 0 && odometry_->displacement.translation.y == 0 && odometry_->displacement.rotation == 0){
+    //walk_mem_->global_to_odometry_frame_offset_ = globalSensedTorso;
+  //}
+  //// figure out current torso location in global frame
+  //calculateGlobalTorsoLocation();
+
+  //// odometry is how much torso has moved last time vision used it
+  Pose2D prevDisplacement = odometry_->displacement;
+  ////odometry_->displacement = walk_mem_->global_last_torso_.globalToRelative(walk_mem_->global_to_odometry_frame_offset_);
+  //odometry_->displacement = globalSensedTorso.globalToRelative(walk_mem_->global_to_odometry_frame_offset_);
+  //odometry_->displacement.translation.x *= params.odometryFactors.translation.x;
+  //odometry_->displacement.translation.y *= params.odometryFactors.translation.y;
+  //odometry_->displacement.rotation *= params.odometryFactors.rotation;
+  ////std::cout << "motion: " << odometry_->displacement.translation.x << " " << odometry_->displacement.translation.y << " " << RAD_T_DEG * odometry_->displacement.rotation << std::endl;
+  
+  int framesInStep;
+  if (frame < params.stanceSwitch1)
+    framesInStep = frame + params.numFrames - params.stanceSwitch2;
+  else if (frame < params.stanceSwitch2)
+    framesInStep = frame - params.stanceSwitch1;
+  else // frame >= params.stanceSwitch2
+    framesInStep = frame - params.stanceSwitch2;
+
+  float timeInStep = framesInStep * 0.01;
+
+  Pose2D expOdometryThisStep;
+  expOdometryThisStep.translation.x = walkVel.translation.x * timeInStep;
+  expOdometryThisStep.translation.y = walkVel.translation.y * timeInStep;
+  expOdometryThisStep.rotation = walkVel.rotation * timeInStep;
+
+  Pose2D delta;
+  delta.translation.x = expOdometryThisStep.translation.x - odometryThisStep.translation.x;
+  delta.translation.y = expOdometryThisStep.translation.y - odometryThisStep.translation.y;
+  delta.rotation = expOdometryThisStep.rotation - odometryThisStep.rotation;
+
+  //std::cout << timeInStep << " " << expOdometryThisStep.translation.x << " " << odometryThisStep.translation.x << " " << delta.translation.x << std::endl;
+
+  odometryThisStep = expOdometryThisStep;
+
+  odometry_->displacement.translation.x += delta.translation.x;
+  odometry_->displacement.translation.y += delta.translation.y;
+  odometry_->displacement.rotation += delta.rotation;
+  
+  if (hasTarget) {
+    targetPos.translation.x -= (odometry_->displacement.translation.x - prevDisplacement.translation.x);
+    targetPos.translation.y -= (odometry_->displacement.translation.y - prevDisplacement.translation.y);
+    targetPos.rotation -= (odometry_->displacement.rotation - prevDisplacement.rotation);
+    // TODO ROTATION is handled incorrectly
+  }
+
+
+  // set if standing or walking
+  odometry_->standing = walk_mem_->motion_current_ != WalkRequestBlock::WALK;
+  //if (walk_mem_->motion_current_ != WalkRequestBlock::WALK)
+    //odometry_->displacement = Pose2D(0,0,0);
+  //odometry_->standing = step_current_->is_stand_;
+
+}
+
+void HTWKWalkModule::updateGlobal() {
+  Pose3D leftTarget, rightTarget;
+  calcOpenLoop(frame-1,0,0,leftTarget,rightTarget);
+  Pose2D newStance;
+  Pose2D oldStance;
+
+  // new stance is leftStance, old is !leftStance
+  if (leftStance) {
+    newStance = Pose2D(leftTarget.rotation.getZAngle(),leftTarget.translation.x,leftTarget.translation.y);
+    oldStance = Pose2D(rightTarget.rotation.getZAngle(),rightTarget.translation.x,rightTarget.translation.y);
+  } else {
+    newStance = Pose2D(rightTarget.rotation.getZAngle(),rightTarget.translation.x,rightTarget.translation.y);
+    oldStance = Pose2D(leftTarget.rotation.getZAngle(),leftTarget.translation.x,leftTarget.translation.y);
+  }
+
+  Pose2D diff = newStance.globalToRelative(oldStance);
+  globalFrameOffset = diff.relativeToGlobal(globalFrameOffset);
+  
+  //globalFrameOffset.translation += newStance.translation - oldStance.translation;
+  //globalFrameOffset.rotation += newStance.rotation - oldStance.rotation;
+  //globalFrameOffset.rotation = normalize(globalFrameOffset.rotation);
+  //Pose2D delta(normalize(newStance.rotation - oldStance.rotation),newStance.translation - oldStance.translation);
+
+  //Pose3D com;
+  //getCom(!leftStance,&commandBodyModel,com); // not left stance because we want it from the old stance
+  //// convert the torso to the global frame
+  //com = com.relativeToGlobal(globalFrameOffset);
+  //// convert new stance to global frame
+  //Pose3D globalStance;
+  //if (leftStance)
+    //globalStance = leftTarget.relativeToGlobal(com);
+  //else
+    //globalStance = rightTarget.relativeToGlobal(com);
+  
+  //// set the global frame
+  //globalFrameOffset.translation.x = globalStance.translation.x;
+  //globalFrameOffset.translation.y = globalStance.translation.y;
+  //globalFrameOffset.rotation = globalStance.rotation.getZAngle();
+}
+
+void HTWKWalkModule::calculateGlobalTorsoLocation() {
+  Pose3D torsoStanceFrame;
+  //getCom(leftStanceOdom,body_model_->rel_parts_no_rotations_,torsoStanceFrame);
+  ForwardKinematics::calculateRelativePose(commands_->angles_, 0, 0, commandBodyModel.rel_parts_, robot_info_->dimensions_);
+  getCom(leftStance,commandBodyModel.rel_parts_,torsoStanceFrame);
+  // update current
+  globalSensedTorso.translation.x = torsoStanceFrame.translation.x;
+  globalSensedTorso.translation.y = torsoStanceFrame.translation.y;
+  globalSensedTorso.rotation = torsoStanceFrame.rotation.getZAngle();
+  //globalSensedTorso = globalSensedTorso.relativeToGlobal(globalFrameOffsetOdom);
+  globalSensedTorso = globalSensedTorso.relativeToGlobal(globalFrameOffset);
+  //delayedTorso.push(globalSensedTorso);
+  //if (delayedTorso.getNumberOfEntries() >= 8) {
+    //globalSensedTorso = delayedTorso.pop();
+  //} else {
+    //globalSensedTorso = delayedTorso.front();
+  //}
+  //std::cout << "globalSensedTorso: " << globalSensedTorso.translation.x << " " << globalSensedTorso.translation.y << " " << RAD_T_DEG * globalSensedTorso.rotation << std::endl;
+}
+
+void HTWKWalkModule::convertRelativeToGlobal(Vector2<float> &pt, const Pose2D &globalFrameOffset) {
+  Pose2D pose(0,pt.x,pt.y);
+  pose = pose.relativeToGlobal(globalFrameOffset);
+  pt.x = pose.translation.x;
+  pt.y = pose.translation.y;
+}
+
+void HTWKWalkModule::convertRelativeToGlobal(Vector3<float> &pt, const Pose2D &globalFrameOffset) {
+  Pose2D pose(0,pt.x,pt.y);
+  pose = pose.relativeToGlobal(globalFrameOffset);
+  pt.x = pose.translation.x;
+  pt.y = pose.translation.y;
+}
+
+void HTWKWalkModule::convertGlobalToRelative(Vector2<float> &pt, const Pose2D &globalFrameOffset) {
+  Pose2D pose(0,pt.x,pt.y);
+  pose = pose.globalToRelative(globalFrameOffset);
+  pt.x = pose.translation.x;
+  pt.y = pose.translation.y;
+}
+
+void HTWKWalkModule::convertGlobalToRelative(Vector3<float> &pt, const Pose2D &globalFrameOffset) {
+  Pose2D pose(0,pt.x,pt.y);
+  pose = pose.globalToRelative(globalFrameOffset);
+  pt.x = pose.translation.x;
+  pt.y = pose.translation.y;
+}
+
+// DO NOT REMOVE
+// vim: expandtab:noai:sts=2:sw=2:ts=2

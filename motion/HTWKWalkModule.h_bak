@@ -1,0 +1,261 @@
+#ifndef HTWKWALKMODULE_KC9ZHH5C
+#define HTWKWALKMODULE_KC9ZHH5C
+
+#include <Module.h>
+
+#include "HTWKWalkParameters.h"
+#include <common/RobotDimensions.h>
+#include <kinematics/InverseKinematics.h>
+#include <common/NMatrix.h>
+#include <common/MassCalibration.h>
+#include <common/PIDController.h>
+#include <common/ExponentialFilter.h>
+#include <memory/WalkEngineBlock.h>
+#include <memory/BodyModelBlock.h>
+#include <math/Spline3D.h>
+#include <common/RingBufferWithSum.h>
+
+//#define USE_EXP_FILTER
+#undef USE_EXP_FILTER
+
+#define MAX_SENSOR_DELAY 25
+#define MAX_NUM_FRAMES 50
+#define MAX_NUM_PLANNED_STEPS 10
+#define NUM_BODY_ANGLE_ERRORS 10
+
+//class BodyModelBlock;
+class FrameInfoBlock;
+class GraphableBlock;
+class JointBlock;
+class JointCommandBlock;
+class OdometryBlock;
+class SensorBlock;
+//class WalkEngineBlock;
+class WalkParamBlock;
+class WalkRequestBlock;
+class RobotInfoBlock;
+
+typedef WalkEngineBlock::Step Step;
+
+class HTWKWalkModule: public Module {
+public:
+  HTWKWalkModule();
+  ~HTWKWalkModule();
+  void specifyMemoryDependency();
+  void specifyMemoryBlocks();
+  void initSpecificModule();
+
+  void processFrame();
+
+  void initStiffness(float val, bool force = false);
+private:
+  // internal functions
+
+  // main functions
+  void walk();
+  void stand();
+
+  // initialization
+  void initWalk();
+  void initKick();
+
+  // walk request
+  void processWalkRequest();
+
+  // odometry
+  void updateOdometry();
+  void calculateGlobalTorsoLocation();
+
+  void updateTiltAndRoll();
+
+public:
+  Spline3D swing_spline_;
+  Spline3D stance_spline_;
+private:
+  // kinematics
+  InverseKinematics inverse_kinematics_;
+
+  // memory blocks
+  BodyModelBlock *body_model_;
+  FrameInfoBlock *frame_info_;
+  GraphableBlock *graph_;
+  JointBlock *joints_;
+  JointCommandBlock *commands_;
+  OdometryBlock *odometry_;
+  SensorBlock *sensors_;
+  WalkEngineBlock *walk_mem_;
+  WalkParamBlock *walk_param_;
+  WalkRequestBlock *walk_request_;
+  RobotInfoBlock *robot_info_;
+
+  // spare one to calculate command body models
+  BodyModelBlock commandBodyModel;
+
+
+  HTWKWalkParameters params;
+
+  // HTWK Stuff
+  int frame;
+  //int frameInc;
+  
+  //int sensorDelayProp;
+  //int sensorDelayFsr;
+
+  //int numFrames;
+
+  float swing;
+  float knee;
+  float vShort;
+  float aShort;
+  float oShort;
+  float vSwing;
+  float oSwing;
+  //float balanceGyro1;
+  //float balanceGyro2;
+  //float balanceGyro3;
+  //float balanceGyro4;
+
+  Pose2D walkVel;
+  Pose2D walkVec;
+  //Pose2D maxVel;
+  //float maxBack;
+  //const Pose2D maxVelInc;
+  //const Pose2D maxVelDec;
+  //int stanceSwitch1;
+  //int stanceSwitch2;
+
+  float speed;
+
+  float dampStop;
+  float dampGyro;
+  //float startLength;
+
+#ifdef USE_EXP_FILTER
+  Vector3<ExponentialFilter> filterLeftPos;
+  Vector3<ExponentialFilter> filterRightPos;
+  Vector2<ExponentialFilter> filterLeftZmp;
+  Vector2<ExponentialFilter> filterRightZmp;
+#else
+  Vector3<PIDController> filterLeftPos;
+  Vector3<PIDController> filterRightPos;
+  Vector2<PIDController> filterLeftZmp;
+  Vector2<PIDController> filterRightZmp;
+#endif
+
+  //PIDController filterBodyTilt;
+  //PIDController filterBodyRoll;
+
+  struct DelayedInfo {
+    int frame;
+    // ideal positions
+    Pose3D leftDes;
+    Pose3D rightDes;
+    // commanded positions
+    Pose3D leftCom;
+    Pose3D rightCom;
+
+    Vector2<float> zmp;
+    Pose2D globalFrameOffset;
+    bool leftStance;
+    Pose3D com;
+  };
+
+  RingQueue<DelayedInfo,MAX_SENSOR_DELAY> delayedInfos;
+  RingQueue<Vector2<float>,MAX_SENSOR_DELAY> delayedZmps;
+  RingQueue<Pose2D,MAX_SENSOR_DELAY> delayedTorso;
+
+  Pose2D globalSensedTorso;
+
+  void calcDesiredSpeed();
+  float changeSpeed(float last, float des, float maxDec, float maxInc);
+  void calcJointAngles(float frame, float bodyTiltError, float bodyRollError, float outAngles[NUM_JOINTS]);
+  void updateTime();
+  void reset();
+  void setOutAngles(const float angles[NUM_JOINTS], float outAngles[NUM_JOINTS]);
+
+  void updateGlobal();
+
+  Pose2D globalFrameOffset;
+
+  void updateStance();
+  bool calcStance(int inFrame = -1);
+  bool leftStance;
+  //DelayedInfo prevDelayed;
+  static const float iniAngles[NUM_JOINTS];
+  static const int jointMapping[NUM_JOINTS];
+
+  void calcOpenLoop(int inFrame, float bodyTiltError, float bodyRollError, Pose3D &leftTarget, Pose3D &rightTarget);
+  void applyClosedLoop(Pose3D &leftTarget, Pose3D &rightTarget, DelayedInfo &delayed);
+  void setArms(Joints angles, float timeInSeconds);
+
+  bool kickingCurrently;
+  bool kickRequested;
+  bool kickWithLeft;
+  float kickHeading;
+  void calcKickSpline(WalkKickSpline &splineParams);
+  void applyKick(int inFrame, Pose3D &leftTarget, Pose3D &rightTarget);
+  
+  void getCom(bool leftStance, Pose3D bodyParts[], Pose3D &com);
+  void getPos(Pose3D bodyParts[], Pose3D &left, Pose3D &right);
+  void getPos(Pose3D bodyParts[], Pose2D &left, Pose2D &right);
+  void saveDelayedInfo(const Pose3D &leftTarget, const Pose3D &rightTarget);
+  void getDelayedInfo(DelayedInfo &delayed);
+  void getSensorEstimates(Pose3D &left, Pose3D &right, Vector2<float> &zmp);
+  void convertRelativeToGlobal(Vector2<float> &pt, const Pose2D &globalFrameOffset);
+  void convertRelativeToGlobal(Vector3<float> &pt, const Pose2D &globalFrameOffset);
+  void convertGlobalToRelative(Vector2<float> &pt, const Pose2D &globalFrameOffset);
+  void convertGlobalToRelative(Vector3<float> &pt, const Pose2D &globalFrameOffset);
+  float lastStandSendTime;
+  static const float STAND_TIME;
+
+  Vector3<float> leftPosAdjustments[MAX_NUM_FRAMES];
+  Vector3<float> rightPosAdjustments[MAX_NUM_FRAMES];
+
+  float leftAnkleOffset;
+  float rightAnkleOffset;
+
+  bool leftStanceOdom;
+  Pose2D globalFrameOffsetOdom;
+
+  bool hasTarget;
+  Pose2D targetPos;
+  Pose2D targetPosErrorAllowed;
+  Pose2D targetVelErrorAllowed;
+  float getDesiredVelForTargetDim(float targetPos, float currentVel, float maxVel, float maxPosError, float maxVelError);
+  void getDesiredVelForTarget(Pose2D &maxVel, Pose2D &desiredVel);
+  bool absLessThanError(const Pose2D &vals, const Pose2D &err);
+  void updateTarget();
+
+  //float bodyTiltTarget;
+  float bodyTiltTarget;
+  float bodyTilt;
+  float bodyRoll;
+  float bodyTiltError;
+  float bodyRollError;
+  float avgBodyTiltError;
+  float avgBodyRollError;
+  RingBufferWithSum<float,NUM_BODY_ANGLE_ERRORS> bodyTiltErrors;
+  RingBufferWithSum<float,NUM_BODY_ANGLE_ERRORS> bodyRollErrors;
+
+  bool standRequired;
+  float standRequiredStart;
+
+  //bool hasPlannedSteps;
+  //Pose2D plannedSteps[MAX_NUM_PLANNED_STEPS];
+  //bool plannedStepsLeftStance[MAX_NUM_PLANNED_STEPS];
+  //int plannedStepInd;
+  //void planSteps();
+  //void getDesiredSpeedForPlan(Pose2D &desiredSpeed);
+
+  Pose2D odometryThisStep;
+
+  bool freezeStep;
+  float frozenDiff;
+  bool freezeStepPrev;
+  float frozenDiffPrev;
+
+  bool freeze;
+  float frozenVel;
+};
+
+#endif /* end of include guard: HTWKWALKMODULE_KC9ZHH5C */
