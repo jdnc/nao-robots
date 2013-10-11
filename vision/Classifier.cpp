@@ -17,6 +17,16 @@ Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams,
     verticalPointCount[i] = new uint32_t[iparams_.width];
     memset(verticalPointCount[i], 0, iparams_.width);
   }
+  horizontalPoint = new VisionPoint**[NUM_COLORS];
+  for (int i=0; i<NUM_COLORS; i++){
+      horizontalPoint[i] = new VisionPoint*[iparams_.height];
+      memset(horizontalPoint[i], 0, iparams_.height);
+  }
+  verticalPoint = new VisionPoint**[NUM_COLORS];
+  for (int i=0; i<NUM_COLORS; i++){
+      verticalPoint[i] = new VisionPoint*[iparams_.width];
+      memset(verticalPoint[i], 0, iparams_.width);
+  }
 }
 
 Classifier::~Classifier() {
@@ -124,5 +134,58 @@ void Classifier::getStepScale(int& h, int& v){
 }
 
 void Classifier::constructRuns(){
+    //construct vertical runs
+    for(int i=0; i<iparams_.width; i++){
+        uint16_t xi, xf;
+        xi = xf = i;
+	for(int j=1; j<iparams_.height;){
+            //see how far the current run goes
+            uint16_t yi = j-1;
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, j-1)){
+		j++;
+	    }
+            //initialize a new visionPoint struct for the current run
+            unsigned char runColor = getSegPixelValueAt(i, yi);
+            //verticalPoint[runColor][i][yi] = new VisionPoint;
+            VisionPoint *v = &verticalPoint[runColor][i][yi];
+            v->xi = xi;
+            v->xf = xf;
+            v->yi = yi;
+            v->yf = j-1;
+            v->dx = 0;
+            v->dy = v->yf - v->yi;
+            //increment run count for current color and line
+            verticalPointCount[runColor][i]++;
+            //increment j so we don't repeat a check
+            j++;
+	}
+    }
 
+
+    //construct horizontal runs
+    for(int j=0; j<iparams_.height; j++){
+        uint16_t yi, yf;
+        yi = yf = j;
+	for(int i=1; i<iparams_.width; i++){
+            //see how far the current run goes
+            uint16_t xi = i-1;
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i-1, j)){
+		i++;
+	    }
+            //initialize a new visionPoint struct for the current run
+            unsigned char runColor = getSegPixelValueAt(xi, j);
+            VisionPoint *v = &horizontalPoint[runColor][j][xi];
+            v->xi = xi;
+            v->xf = i-1;
+            v->yi = yi;
+            v->yf = yf;
+            v->dy = 0;
+            v->dx = v->xf - v->xi;
+            //increment run count for current color and line
+            horizontalPointCount[runColor][i]++;
+            //increment i so we don't repeat a check
+            i++;
+	}
+    }
 }
+
