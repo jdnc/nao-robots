@@ -123,3 +123,6 @@ void Classifier::getStepScale(int& h, int& v){
     v = vscale_;
 }
 
+void Classifier::constructRuns(){
+
+}

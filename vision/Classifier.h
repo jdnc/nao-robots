@@ -25,6 +25,7 @@ class Classifier {
   bool classifyImage(unsigned char*);
   void classifyImage(const std::vector<FocusArea>& areas, unsigned char* colorTable);
   void classifyImage(const FocusArea& area, unsigned char* colorTable);
+  void constructRuns();
   inline Color xy2color(int x, int y) {
     return (Color)segImg_[y * iparams_.width + x];
   }
