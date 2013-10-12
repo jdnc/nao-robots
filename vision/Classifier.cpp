@@ -138,6 +138,7 @@ void Classifier::getStepScale(int& h, int& v){
 void Classifier::constructRuns(){
     //construct vertical runs
     printf("Hare Krishna. In construct Runs!\n"); //DEBUG
+    uint16_t unique = 0;
     for(int i=0; i<iparams_.width; i++){
         uint16_t xi, xf;
         xi = xf = i;
@@ -157,6 +158,8 @@ void Classifier::constructRuns(){
             v->yf = j-1;
             v->dx = 0;
             v->dy = v->yf - v->yi;
+            v->lbIndex = unique;
+            unique++;
             //increment run count for current color and line
             verticalPointCount[runColor][i]++;
             //increment j so we don't repeat a check
@@ -184,6 +187,8 @@ void Classifier::constructRuns(){
             v->yf = yf;
             v->dy = 0;
             v->dx = v->xf - v->xi;
+            v->lbIndex = unique
+            unique++;
             printf("Struct stats\n"); //DEBUG
             printf("%u %u", v->xi, v->dx); //DEBUG
             //increment run count for current color and line
