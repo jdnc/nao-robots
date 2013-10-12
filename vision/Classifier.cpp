@@ -20,12 +20,14 @@ Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams,
   horizontalPoint = new VisionPoint**[NUM_COLORS];
   for (int i=0; i<NUM_COLORS; i++){
       horizontalPoint[i] = new VisionPoint*[iparams_.height];
-      memset(horizontalPoint[i], 0, iparams_.height);
+      for (int j=0; j<iparams_.height; j++)
+          horizontalPoint[i][j] = new VisionPoint[iparams_.width];
   }
   verticalPoint = new VisionPoint**[NUM_COLORS];
   for (int i=0; i<NUM_COLORS; i++){
       verticalPoint[i] = new VisionPoint*[iparams_.width];
-      memset(verticalPoint[i], 0, iparams_.width);
+      for(int j=0; j<iparams_.width; j++)
+          verticalPoint[i][j] = new VisionPoint[iparams_.height];
   }
 }
 
