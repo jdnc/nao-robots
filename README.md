@@ -16,5 +16,7 @@ Instructions to run core and see output
 
 
 Helpful slides for vision assignment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-http://www.cs.cmu.edu/~robosoccer/cmrobobits/lectures/vision.pdf
+
+
+
+<http://www.cs.cmu.edu/~robosoccer/cmrobobits/lectures/vision.pdf>
