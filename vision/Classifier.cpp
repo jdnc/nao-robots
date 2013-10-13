@@ -161,6 +161,8 @@ void Classifier::constructRuns(){
             v->dx = 0;
             v->dy = v->yf - v->yi;
             v->lbIndex = unique;
+            v->next = NULL;
+            v->parent = v; 
             unique++;
             //increment run count for current color and line
             verticalPointCount[runColor][i]++;
@@ -190,7 +192,9 @@ void Classifier::constructRuns(){
             v->yf = yf;
             v->dy = 0;
             v->dx = v->xf - v->xi;
-            v->lbIndex = unique
+            v->lbIndex = unique;
+            v->next = NULL;
+            v->parent = v; 
             unique++;
             printf("Struct stats\n"); //DEBUG
             printf("%u %u", v->xi, v->dx); //DEBUG
