@@ -13,3 +13,8 @@ Instructions to run core and see output
 3. run ./bin/tool and go to File menu to open the log
 4. select run core in the tool window
 5. Output displayed on terminal!
+
+
+Helpful slides for vision assignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+http://www.cs.cmu.edu/~robosoccer/cmrobobits/lectures/vision.pdf
