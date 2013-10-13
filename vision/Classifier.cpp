@@ -195,7 +195,7 @@ void Classifier::constructRuns(){
             printf("Struct stats\n"); //DEBUG
             printf("%u %u", v->xi, v->dx); //DEBUG
             //increment run count for current color and line
-            horizontalPointCount[runColor][i]++;
+            horizontalPointCount[runColor][j]++;
             //increment i so we don't repeat a check
             i++;
 	}
