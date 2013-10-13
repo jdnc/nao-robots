@@ -137,6 +137,7 @@ void Classifier::getStepScale(int& h, int& v){
 
 void Classifier::constructRuns(){
     //construct vertical runs
+    int colorIndex;
     printf("Hare Krishna. In construct Runs!\n"); //DEBUG
     uint16_t unique = 0;
     for(int i=0; i<iparams_.width; i++){
@@ -151,7 +152,8 @@ void Classifier::constructRuns(){
             //initialize a new visionPoint struct for the current run
             unsigned char runColor = getSegPixelValueAt(i, yi);
             //verticalPoint[runColor][i][yi] = new VisionPoint;
-            VisionPoint *v = &verticalPoint[runColor][i][yi];
+            colorIndex = verticalPointCount[runColor][i];
+            VisionPoint *v = &verticalPoint[runColor][i][colorIndex];
             v->xi = xi;
             v->xf = xf;
             v->yi = yi;
@@ -180,7 +182,8 @@ void Classifier::constructRuns(){
 	    }
             //initialize a new visionPoint struct for the current run
             unsigned char runColor = getSegPixelValueAt(xi, j);
-            VisionPoint *v = &horizontalPoint[runColor][j][xi];
+            colorIndex = horizontalPointCount[runColor][j];
+            VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
             v->xi = xi;
             v->xf = i-1;
             v->yi = yi;
