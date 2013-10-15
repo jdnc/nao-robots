@@ -137,7 +137,7 @@ void Classifier::getStepScale(int& h, int& v){
 
 void Classifier::constructRuns(){
     //construct vertical runs
-    int colorIndex;
+    uint16_t colorIndex;
     printf("Hare Krishna. In construct Runs!\n"); //DEBUG
     uint16_t unique = 0;
     for(int i=0; i<iparams_.width; i++){
@@ -187,6 +187,7 @@ void Classifier::constructRuns(){
             colorIndex = horizontalPointCount[runColor][j];
 	    printf("coloIndex : %d", colorIndex); //debug
 	    printf("runColor %d", runColor); //debug
+	    printf("NUM_COLORS:%d", NUM_COLORS); //debug
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
             //v->xi = xi;
             v->xf = i-1;
