@@ -168,6 +168,8 @@ void Classifier::constructRuns(){
             //initialize a new visionPoint struct for the current run
             unsigned char runColor = getSegPixelValueAt(i, yi);
             //verticalPoint[runColor][i][yi] = new VisionPoint;
+	    // don't store anything for undefined color
+            if (runColor){
             colorIndex = verticalPointCount[runColor][i];
             VisionPoint *v = &verticalPoint[runColor][i][colorIndex];
             v->xi = xi;
@@ -182,6 +184,7 @@ void Classifier::constructRuns(){
             unique++;
             //increment run count for current color and line
             verticalPointCount[runColor][i]++;
+            }
             //increment j so we don't repeat a check
             j++;
 	}
@@ -203,7 +206,9 @@ void Classifier::constructRuns(){
             colorIndex = horizontalPointCount[runColor][j];
 	    printf("coloIndex : %d", colorIndex); //debug
 	    printf("runColor %d", runColor); //debug
-	    printf("NUM_COLORS:%d", NUM_COLORS); //debug
+	    //printf("NUM_COLORS:%d", NUM_COLORS); //debug
+            // only if color is not undefined
+            if (runColor){
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
             v->xi = xi;
             v->xf = i-1;
@@ -215,10 +220,11 @@ void Classifier::constructRuns(){
             v->next = NULL;
             v->parent = v; 
             unique++;
-            printf("Struct stats\n"); //DEBUG
+            //printf("Struct stats\n"); //DEBUG
             printf("%u %u", v->xi, v->yi); //DEBUG
             //increment run count for current color and line
             horizontalPointCount[runColor][j]++;
+            }
             //increment i so we don't repeat a check
             i++;
 	}
