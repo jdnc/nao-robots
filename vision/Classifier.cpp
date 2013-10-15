@@ -33,6 +33,22 @@ Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams,
 
 Classifier::~Classifier() {
   delete [] segImgLocal_;
+  for(int i=0; i<NUM_COLORS; i++){
+  	delete[] horizontalPointCount[i];
+	delete[] verticalPointCount[i];
+  }
+  delete[] horizontalPointCount;
+  delete[] verticalPointCount;
+  for(int i=0; i<NUM_COLORS; i++){
+    for(int j=0; j<iparams_.width; j++)
+      delete[] verticalPoint[i][j];
+    delete[] verticalPoint[i];
+    for(int k=0; k<iparams_.height; k++)
+      delete[] horizontalPoint[i][k];
+    delete[] horizontalPoint[i];
+  }
+  delete[] horizontalPoint;
+  delete[] verticalPoint;
 }
 
 bool Classifier::setImagePointers() {
@@ -189,7 +205,7 @@ void Classifier::constructRuns(){
 	    printf("runColor %d", runColor); //debug
 	    printf("NUM_COLORS:%d", NUM_COLORS); //debug
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
-            //v->xi = xi;
+            v->xi = xi;
             v->xf = i-1;
             v->yi = yi;
             v->yf = yf;
