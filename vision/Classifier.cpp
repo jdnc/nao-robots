@@ -146,7 +146,7 @@ void Classifier::constructRuns(){
 	for(int j=1; j<iparams_.height;){
             //see how far the current run goes
             uint16_t yi = j-1;
-            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, j-1)){
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, j-1) && j<iparams_.height){
 		j++;
 	    }
             //initialize a new visionPoint struct for the current run
@@ -176,17 +176,19 @@ void Classifier::constructRuns(){
     for(int j=0; j<iparams_.height; j++){
         uint16_t yi, yf;
         yi = yf = j;
-	for(int i=1; i<iparams_.width; i++){
+	for(int i=1; i<iparams_.width;){
             //see how far the current run goes
             uint16_t xi = i-1;
-            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i-1, j)){
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i-1, j) && i<iparams_.width){
 		i++;
 	    }
             //initialize a new visionPoint struct for the current run
             unsigned char runColor = getSegPixelValueAt(xi, j);
             colorIndex = horizontalPointCount[runColor][j];
+	    printf("coloIndex : %d", colorIndex); //debug
+	    printf("runColor %d", runColor); //debug
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
-            v->xi = xi;
+            //v->xi = xi;
             v->xf = i-1;
             v->yi = yi;
             v->yf = yf;
@@ -197,7 +199,7 @@ void Classifier::constructRuns(){
             v->parent = v; 
             unique++;
             printf("Struct stats\n"); //DEBUG
-            printf("%u %u", v->xi, v->dx); //DEBUG
+            printf("%u %u", v->xi, v->yi); //DEBUG
             //increment run count for current color and line
             horizontalPointCount[runColor][j]++;
             //increment i so we don't repeat a check
