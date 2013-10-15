@@ -146,7 +146,7 @@ void Classifier::constructRuns(){
 	for(int j=1; j<iparams_.height;){
             //see how far the current run goes
             uint16_t yi = j-1;
-            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, j-1) && j<iparams_.height){
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, (j-1)) && j<iparams_.height){
 		j++;
 	    }
             //initialize a new visionPoint struct for the current run
@@ -179,7 +179,7 @@ void Classifier::constructRuns(){
 	for(int i=1; i<iparams_.width;){
             //see how far the current run goes
             uint16_t xi = i-1;
-            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i-1, j) && i<iparams_.width){
+            while (getSegPixelValueAt(i, j) == getSegPixelValueAt((i-1), j) && i<iparams_.width){
 		i++;
 	    }
             //initialize a new visionPoint struct for the current run
