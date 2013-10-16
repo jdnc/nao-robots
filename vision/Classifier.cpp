@@ -152,46 +152,12 @@ void Classifier::getStepScale(int& h, int& v){
 }
 
 void Classifier::constructRuns(){
-    //construct vertical runs
+    printf("Hare Krishna\n");
+    int unique = 0;
     uint16_t colorIndex;
-    printf("Hare Krishna. In construct Runs!\n"); //DEBUG
-    uint16_t unique = 0;
-    for(int i=0; i<iparams_.width; i++){
-        uint16_t xi, xf;
-        xi = xf = i;
-	for(int j=1; j<iparams_.height;){
-            //see how far the current run goes
-            uint16_t yi = j-1;
-            while (getSegPixelValueAt(i, j) == getSegPixelValueAt(i, (j-1)) && j<iparams_.height){
-		j++;
-	    }
-            //initialize a new visionPoint struct for the current run
-            unsigned char runColor = getSegPixelValueAt(i, yi);
-            //verticalPoint[runColor][i][yi] = new VisionPoint;
-	    // don't store anything for undefined color
-            if (runColor){
-            colorIndex = verticalPointCount[runColor][i];
-            VisionPoint *v = &verticalPoint[runColor][i][colorIndex];
-            v->xi = xi;
-            v->xf = xf;
-            v->yi = yi;
-            v->yf = j-1;
-            v->dx = 0;
-            v->dy = v->yf - v->yi;
-            v->lbIndex = unique;
-            v->next = NULL;
-            v->parent = v; 
-            unique++;
-            //increment run count for current color and line
-            verticalPointCount[runColor][i]++;
-            }
-            //increment j so we don't repeat a check
-            j++;
-	}
-    }
-
-
     //construct horizontal runs
+    printf("height : %d", iparams_.height);
+    printf("width : %d", iparams_.width);
     for(int j=0; j<iparams_.height; j++){
         uint16_t yi, yf;
         yi = yf = j;
