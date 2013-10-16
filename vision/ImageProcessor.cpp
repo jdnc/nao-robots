@@ -98,7 +98,7 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 void ImageProcessor::processFrame(){
   updateTransform();
   classifier_->classifyImage(color_table_);
-  if (camera_ == Camera::TOP) classifier_->constructRuns();
+  classifier_->constructRuns();
 }
 
 void ImageProcessor::SetColorTable(unsigned char* table) {

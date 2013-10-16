@@ -33,6 +33,8 @@ Classifier::Classifier(const VisionBlocks& vblocks, const VisionParams& vparams,
 
 Classifier::~Classifier() {
   delete [] segImgLocal_;
+  // don't delete these
+  /*
   for(int i=0; i<NUM_COLORS; i++){
   	delete[] horizontalPointCount[i];
 	delete[] verticalPointCount[i];
@@ -48,7 +50,7 @@ Classifier::~Classifier() {
     delete[] horizontalPoint[i];
   }
   delete[] horizontalPoint;
-  delete[] verticalPoint;
+  delete[] verticalPoint;*/
 }
 
 bool Classifier::setImagePointers() {
