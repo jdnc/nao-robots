@@ -2,6 +2,7 @@
 #define VISIONPOINT_H
 
 #include <inttypes.h>
+#include<vision/structures/Blob.h>
 
 struct VisionPoint {
   uint16_t xi, xf, dx, yi, yf, dy;
@@ -9,5 +10,6 @@ struct VisionPoint {
   bool isValid;
   struct VisionPoint* parent; // poiints to the parent of a region
   struct VisionPoint* next; // points to the next run in its region
+  Blob *parentBlob;
 };
 #endif

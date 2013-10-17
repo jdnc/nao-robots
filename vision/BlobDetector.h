@@ -18,6 +18,7 @@ class BlobDetector : public ObjectDetector {
   BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
   void init(TextLogger* tl){textlogger = tl;};
   std::vector<BlobCollection> horizontalBlob, verticalBlob;
+  void formBlobs(uint16_t c);
 
  private:
   Classifier*& classifier_;

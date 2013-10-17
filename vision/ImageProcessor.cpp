@@ -99,6 +99,8 @@ void ImageProcessor::processFrame(){
   updateTransform();
   classifier_->classifyImage(color_table_);
   classifier_->constructRuns();
+  //for(uint16_t i = 1; i<NUM_COLORS; i++)
+ //blob_detector_->formBlobs(c_ORANGE);
 }
 
 void ImageProcessor::SetColorTable(unsigned char* table) {

@@ -23,6 +23,6 @@ struct Blob {
   Blob() : lpIndex(MAX_BLOB_VISIONPOINTS, 0) { }
 };
 
-bool sortBlobAreaPredicate(Blob* left, Blob* right);
+bool sortBlobAreaPredicate(const Blob& left, const Blob& right);
 
 #endif

@@ -157,25 +157,31 @@ void Classifier::constructRuns(){
     printf("Hare Krishna\n");
     int unique = 0;
     uint16_t colorIndex;
+    unsigned char runColor;
     //construct horizontal runs
     printf("height : %d", iparams_.height);
     printf("width : %d", iparams_.width);
     for(int j=0; j<iparams_.height; j++){
         uint16_t yi, yf;
         yi = yf = j;
+        for(int color =0; color<NUM_COLORS; color++){
+            horizontalPointCount[color][j] = 0;
+        }
 	for(int i=1; i<iparams_.width;){
             //see how far the current run goes
             uint16_t xi = i-1;
+	    //printf("pixelVal = %d", getSegPixelValueAt((i-1),j)); //debug
             while (getSegPixelValueAt(i, j) == getSegPixelValueAt((i-1), j) && i<iparams_.width){
 		i++;
 	    }
             //initialize a new visionPoint struct for the current run
-            unsigned char runColor = getSegPixelValueAt(xi, j);
+            runColor = getSegPixelValueAt(xi, j);
 	    //printf("coloIndex : %d", colorIndex); //debug
 	    //printf("runColor %d", runColor); //debug
 	    //printf("NUM_COLORS:%d", NUM_COLORS); //debug
             // only if color is not undefined
-            if (runColor){
+            if (runColor != 0 && runColor!=1){
+	    printf("\n In here"); //debug
 	    colorIndex = horizontalPointCount[runColor][j];
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
             v->xi = xi;
@@ -192,16 +198,18 @@ void Classifier::constructRuns(){
             //printf("%u %u", v->xi, v->yi); //DEBUG
             //increment run count for current color and line
             horizontalPointCount[runColor][j]++;
+	    printf("\npointCount = %d for %d", horizontalPointCount[runColor][j], runColor);//debug
             }
             //increment i so we don't repeat a check
             i++;
-	}
+	} 
+	
     }
 }
 
 // construct only horizontal runs
 //construct only for given color
-void connectComponents(Color rkcolor){
+void Classifier::connectComponents(uint16_t rkcolor){
     // do it for each row
     //find the parent
     VisionPoint **rle_map = horizontalPoint[rkcolor];
@@ -237,12 +245,15 @@ void connectComponents(Color rkcolor){
         //find the smaller one 
         if (n->yi < p->yi){
           p->parent = n;
+	  p->lbIndex = n->lbIndex;
         }
         else if(n->xi < p->xi){
           p->parent = n;
+	  p->lbIndex = n->lbIndex;
         }
         else{
           n->parent = p;
+          n->lbIndex = p->lbIndex;
         }
       }
     }
@@ -262,6 +273,7 @@ void connectComponents(Color rkcolor){
         if (p->yi > n->yi || (p->yi == n->yi && p->xi > n->xi)){
           while(p != p->parent) p = p->parent;
           n->parent = p;
+	  n->lbIndex = p->lbIndex;
         }
       }
     }
