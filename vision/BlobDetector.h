@@ -19,7 +19,10 @@ class BlobDetector : public ObjectDetector {
   void init(TextLogger* tl){textlogger = tl;};
   std::vector<BlobCollection> horizontalBlob, verticalBlob;
   void formBlobs(uint16_t c);
-
+  void mergeBlobs(BlobCollection &, uint16_t, uint16_t);
+  void findBeacons();
+  void searchMatch(WorldObject *, Color, Color);
+ 
  private:
   Classifier*& classifier_;
   TextLogger* textlogger;

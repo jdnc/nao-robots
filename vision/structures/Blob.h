@@ -8,7 +8,7 @@
 struct Blob {
   uint16_t xi, xf, dx, yi, yf, dy;
   uint16_t lpCount;
-  std::vector<uint32_t> lpIndex;
+  //std::vector<uint32_t> lpIndex;
   float diffStart;
   float diffEnd;
   float doubleDiff;
@@ -21,7 +21,7 @@ struct Blob {
   bool invalid;
 
   //Blob() : lpIndex(MAX_BLOB_VISIONPOINTS, 0) { };
-  Blob(){ };
+ //Blob(){ };
 };
 
 bool sortBlobAreaPredicate(const Blob& left, const Blob& right);

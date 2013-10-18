@@ -100,9 +100,17 @@ void ImageProcessor::processFrame(){
    classifier_->classifyImage(color_table_);
    if(camera_ == Camera::TOP){
    classifier_->constructRuns();
-   classifier_->connectComponents(c_ORANGE);
-  //for(uint16_t i = ; i<NUM_COLORS; i++)
-   blob_detector_->formBlobs(c_ORANGE);
+   classifier_->connectComponents(c_BLUE);
+   classifier_->connectComponents(c_PINK);
+  /*classifier_->connectComponents(c_YELLOW);
+   blob_detector_->formBlobs(c_YELLOW); 
+   
+  
+   classifier_->connectComponents(c_BLUE);  
+   blob_detector_->formBlobs(c_BLUE);
+  //for(uint16_t i = ; i<NUM_COLORS; i++)*/
+   blob_detector_->formBlobs(c_BLUE); 
+   blob_detector_->formBlobs(c_PINK); 
    }
 }
 
