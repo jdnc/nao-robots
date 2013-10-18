@@ -20,7 +20,8 @@ struct Blob {
   float correctPixelRatio;
   bool invalid;
 
-  Blob() : lpIndex(MAX_BLOB_VISIONPOINTS, 0) { }
+  //Blob() : lpIndex(MAX_BLOB_VISIONPOINTS, 0) { };
+  Blob(){ };
 };
 
 bool sortBlobAreaPredicate(const Blob& left, const Blob& right);

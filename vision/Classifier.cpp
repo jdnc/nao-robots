@@ -237,18 +237,14 @@ void Classifier::connectComponents(uint16_t rkcolor){
       if(r1->parent == r1){
         r1->parent = r2->parent; // moving the one below to the next
         s = l1;
-      }else
+      }else if(r1->parent != r2->parent)
       { //moving the one above to the next, need to adjust parents
         n = r1->parent;
         while(n->parent != n) n = n->parent;
         p = r2->parent;
         while(p->parent != p) p = p->parent;
         //find the smaller one 
-        if (n->yi < p->yi){
-          p->parent = n;
-	  p->lbIndex = n->lbIndex;
-        }
-        else if(n->xi < p->xi){
+        if (n->yi < p->yi || (n->yi == p->yi && n->xi<p->xi)){
           p->parent = n;
 	  p->lbIndex = n->lbIndex;
         }
