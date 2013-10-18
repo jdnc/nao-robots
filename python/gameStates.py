@@ -5,6 +5,7 @@ from task import Task, HeadBodyTask, MachineTask
 import pose, head, kicks
 import commands, cfgstiff
 import testFSM
+import math
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -34,9 +35,14 @@ class Ready(HeadBodyTask):
     commands.setStiffness()
     HeadBodyTask.run(self)
 
-class Playing(MachineTask):
-  def __init__(self):
-    super(Playing, self).__init__(testFSM.TestMachine())
+class Playing(Task):
+  def run(self):
+    commands.setStiffness()
+    commands.setsetWalkVelocity(.5, 0, 0.0)
+    commands.setHeadPan(math.pi/4.0, 3)
+    commands.setHeadPan(-math.pi/4.0, 3)
+    if self.getTime() > 15.0:
+      self.finish()
 
 class Testing(Task):
   def run(self):

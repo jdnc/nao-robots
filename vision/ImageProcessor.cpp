@@ -96,11 +96,14 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 }
 
 void ImageProcessor::processFrame(){
-  updateTransform();
-  classifier_->classifyImage(color_table_);
-  classifier_->constructRuns();
-  //for(uint16_t i = 1; i<NUM_COLORS; i++)
- //blob_detector_->formBlobs(c_ORANGE);
+   updateTransform();
+   classifier_->classifyImage(color_table_);
+   if(camera_ == Camera::TOP){
+   classifier_->constructRuns();
+   classifier_->connectComponents(c_ORANGE);
+  //for(uint16_t i = ; i<NUM_COLORS; i++)
+   blob_detector_->formBlobs(c_ORANGE);
+   }
 }
 
 void ImageProcessor::SetColorTable(unsigned char* table) {

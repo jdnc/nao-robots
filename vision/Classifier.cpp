@@ -181,7 +181,7 @@ void Classifier::constructRuns(){
 	    //printf("NUM_COLORS:%d", NUM_COLORS); //debug
             // only if color is not undefined
             if (runColor != 0 && runColor!=1){
-	    printf("\n In here"); //debug
+	    //printf("\n In here"); //debug
 	    colorIndex = horizontalPointCount[runColor][j];
             VisionPoint *v = &horizontalPoint[runColor][j][colorIndex];
             v->xi = xi;
@@ -198,7 +198,7 @@ void Classifier::constructRuns(){
             //printf("%u %u", v->xi, v->yi); //DEBUG
             //increment run count for current color and line
             horizontalPointCount[runColor][j]++;
-	    printf("\npointCount = %d for %d", horizontalPointCount[runColor][j], runColor);//debug
+	    //printf("\npointCount = %d for %d", horizontalPointCount[runColor][j], runColor);//debug
             }
             //increment i so we don't repeat a check
             i++;
@@ -214,30 +214,31 @@ void Classifier::connectComponents(uint16_t rkcolor){
     //find the parent
     VisionPoint **rle_map = horizontalPoint[rkcolor];
     uint32_t *count_map = horizontalPointCount[rkcolor];
-    uint32_t lim1, lim2, l1, l2;
+    uint32_t lim1, lim2, l1, l2, s;
     l1 = l2 = 0;
     VisionPoint *n, *p;
     //find the max runs for this color
     int max_run = 0;
-    for(int i=0; i<iparams_.height; i++) max_run += count_map[i];
-    VisionPoint *s = &rle_map[1][0];
+    //for(int i=0; i<iparams_.height; i++) max_run += count_map[i];
+    //VisionPoint *s = &rle_map[1][0];
     VisionPoint *r2 = &rle_map[0][0];
     VisionPoint *r1 = &rle_map[1][0];
-    
-    for (int i=0; i<iparams_.height; i++){
-    lim2 = count_map[i];
-    lim1 = count_map[i+1];
+    for (int i=1; i<iparams_.height; i++){
+    lim2 = count_map[i-1];
+    lim1 = count_map[i];
+    l1 = l2 =0;
+    s = l1;
     while(l1 < lim1 && l2 < lim2){
-    VisionPoint *r2 = &rle_map[i][l2]; // the previous run
-    VisionPoint *r1 = &rle_map[i+1][l1]; // the current run
-    if(r1 && r2 && rkcolor){
+    VisionPoint *r2 = &rle_map[i-1][l2]; // the previous run
+    VisionPoint *r1 = &rle_map[i][l1]; // the current run
+    if(r1 && r2 && rkcolor!=0 && rkcolor !=1){
     //they are not zero - so just check four connectedness
-    if((r1->xi >= r2->xi && r1->xi < r2->xf) || (r2->xi >= r1->xi && r2->xi < r1->xf)) {
-      if(s != r1){
-        s->parent = r1->parent = r2->parent; // moving the one below to the next
-        s = r2;
-      }
-      else{ //moving the one above to the next, need to adjust parents
+    if((r1->xi >= r2->xi && r1->xi <= r2->xf) || (r2->xi >= r1->xi && r2->xi <= r1->xf)) {
+      if(r1->parent == r1){
+        r1->parent = r2->parent; // moving the one below to the next
+        s = l1;
+      }else
+      { //moving the one above to the next, need to adjust parents
         n = r1->parent;
         while(n->parent != n) n = n->parent;
         p = r2->parent;
@@ -257,12 +258,12 @@ void Classifier::connectComponents(uint16_t rkcolor){
         }
       }
     }
-    }
-    else if (r1 && r2){ //if not overlapping
+    { //if not overlapping
       if (r1->xf < r2->xf) l1++;
       else l2++;
     }
       
+    }
     }
     }
     // compress paths
@@ -270,11 +271,14 @@ void Classifier::connectComponents(uint16_t rkcolor){
       for(int lim=0; lim<count_map[i]; lim++){
         n = &rle_map[i][lim];
         p = n->parent;
+        //n->parent = n->parent->parent;
         if (p->yi > n->yi || (p->yi == n->yi && p->xi > n->xi)){
           while(p != p->parent) p = p->parent;
           n->parent = p;
 	  n->lbIndex = p->lbIndex;
         }
+        else 
+          n->parent = p->parent;
       }
     }
 }
