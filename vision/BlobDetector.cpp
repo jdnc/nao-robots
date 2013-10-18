@@ -9,6 +9,7 @@ BlobDetector::BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier) :
 }
 void BlobDetector::formBlobs(uint16_t c){
   VisionPoint *p, *n;
+  bool badFlag = false;
   vector<Blob>::iterator it;
   //horizontalBlob[c].erase(horizontalBlob[c].begin(), horizontalBlob[c].end());
   horizontalBlob[c].clear();
@@ -24,6 +25,12 @@ void BlobDetector::formBlobs(uint16_t c){
     for(int j=0; j<lim; j++){
       n = &rle_map[i][j];
       if(n->parent == n){
+        // remove all small insignificant pixels
+        /*if (n->childCount <=2){
+          n->isValid = false;
+          continue;
+           // don't add this
+        }*/
         printf("I am in parent\n");
         //this is a root
         Blob b;
@@ -43,6 +50,11 @@ void BlobDetector::formBlobs(uint16_t c){
       }
       else{
 	// this is a child, find parent
+        /*if(!(n->parent->isValid)){ // if not valid parent make this invalid and remove it too
+           n->isValid = false;
+           badFlag=true;
+           continue;
+        }*/
 	Blob *pBlob = n->parent->parentBlob;
         //n->parentBlob = pBlob; // just in case
 	//pBlob->lpIndex[pBlob->lpCount] = n->yi << 16 | n->xi;
@@ -53,6 +65,7 @@ void BlobDetector::formBlobs(uint16_t c){
 	pBlob->yf = max(pBlob->yf, n->yf);        
       }
     }
+    
   }
  // calculate other statistics 
  for(it=horizontalBlob[c].begin(); it!=horizontalBlob[c].end(); it++){

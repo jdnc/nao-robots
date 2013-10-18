@@ -192,7 +192,7 @@ void Classifier::constructRuns(){
             v->dx = v->xf - v->xi;
             v->lbIndex = unique;
             v->isValid = true;
-            v->next = NULL;
+            //v->next = NULL;
             v->parent = v; 
             v->childCount = 0;
             unique++;
