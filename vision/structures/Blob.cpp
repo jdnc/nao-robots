@@ -3,3 +3,9 @@
 bool sortBlobAreaPredicate(const Blob& left, const Blob& right) {
   return left.dx * left.dy < right.dx * right.dy;
 }
+
+bool areaOutOfRangePredicate(const Blob& b){
+   double area = b.dx * b.dy;
+   printf("area=%lf", area) //debug
+   return area <= 350 || area >= 17000;
+}

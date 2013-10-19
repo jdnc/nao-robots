@@ -25,5 +25,5 @@ struct Blob {
 };
 
 bool sortBlobAreaPredicate(const Blob& left, const Blob& right);
-
+bool areaOutOfRangePredicate(const Blob&);
 #endif

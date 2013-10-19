@@ -7,6 +7,62 @@ BlobDetector::BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier) :
     horizontalBlob.resize(NUM_COLORS);
     verticalBlob.resize(NUM_COLORS);
 }
+void BlobDetector::preProcess(uint16_t c){
+   // remove spurious and small blobs
+   vector<VisionPoint*> parentList;
+   parentList.clear();
+   horizontalBlob[c].clear();
+   VisionPoint *p, *n;
+   int i, j, lim; //changed from uint32_t to int
+   VisionPoint **rle_map = classifier_->horizontalPoint[c];
+   for(i=0; i<iparams_.height; i++){
+    lim = classifier_->horizontalPointCount[c][i];
+    for(int j=0; j<lim; j++){
+      n = &rle_map[i][j];
+      if(n->parent == n){
+        //this is a root
+        parentList.push_back(n);
+      }
+      else{	
+	// this is child, update appropriate statistics in parent.
+        p = n->parent;
+        p->xi = min(p->xi, n->xi);
+	p->yi = min(p->yi, n->yi);
+	p->xf = max(p->xf, n->xf);
+	p->yf = max(p->yf, n->yf); 
+        p->pixelCount += n->pixelCount;       
+      }
+    } 
+  }
+  // remove all small regions
+  vector<VisionPoint *> :: iterator it;
+  for(it=parentList.begin(); it!=parentList.end();){
+    int dx = (*it)->xf - (*it)->xi;
+    int dy = (*it)->yf - (*it)->yi;
+    if ((*it)->pixelCount < 15 ||  dx < 4 || dy < 4) 
+      it = parentList.erase(it);
+    else 
+      it++; 
+  }
+  // fill up horizontal blobs
+  for(it=parentList.begin(); it!=parentList.end(); it++){
+      Blob b;
+      n = *it;
+      b.xi = n->xi;
+      b.xf = n->xf;
+      b.yi = n->yi;
+      b.yf = n->yf;
+      b.invalid = false;
+      b.dx = n->xf - n->xi;
+      b.dy = n->yf - n->yi;
+      b.avgX = (n->xi + n->xf)/2;
+      b.avgY = (n->yi + n->yf)/2;
+      horizontalBlob[c].push_back(b);
+  }  
+  //sorted in horizontalBlob
+  std::sort(horizontalBlob[c].begin(), horizontalBlob[c].end(), sortBlobAreaPredicate); 
+}
+
 void BlobDetector::formBlobs(uint16_t c){
   VisionPoint *p, *n;
   bool badFlag = false;
@@ -84,8 +140,8 @@ void BlobDetector::mergeBlobs(BlobCollection& blobs, uint16_t x, uint16_t y){
 }
 
 void BlobDetector::findBeacons(){
-  double low_t = 20;
-  double up_t = 6000;
+  double low_t = 350;
+  double up_t = 17000;
   // find pink blobs first
   BlobCollection& pinks = horizontalBlob[c_PINK];
   BlobCollection& blues = horizontalBlob[c_BLUE];
@@ -120,6 +176,7 @@ void BlobDetector::findBeacons(){
       if(centroidcc(*ip, *iy) && ratiocc(*ip, *iy) && rangecc(*ip, *iy)){
          if(ip->yi < iy->yi) { // pink over yellow
             if (bpy->seen == false){
+                printf("yes its true\n");
                 bpy->seen = true;
 		bpy->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		bpy->height = ip->yi - iy->yi;
@@ -130,6 +187,7 @@ void BlobDetector::findBeacons(){
          }
         else if (iy->yi < ip->yi) { // yellow over pink
             if (byp->seen == false){
+                 printf("yes its true\n");
                 byp->seen = true;
 		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		byp->height = iy->yi - ip->yi;
@@ -148,6 +206,7 @@ void BlobDetector::findBeacons(){
       if(centroidcc(*ip, *iy) && ratiocc(*ip, *iy) && rangecc(*ip, *iy)){
          if(ip->yi < iy->yi) { // pink over blue
             if (bpy->seen == false){
+                 printf("yes its true\n");
                 bpy->seen = true;
 		bpy->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		bpy->height = ip->yi - iy->yi;
@@ -159,6 +218,7 @@ void BlobDetector::findBeacons(){
         else if (iy->yi < ip->yi) { // blue over pink
             if (byp->seen == false){
                 byp->seen = true;
+                 printf("yes its true\n");
 		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		byp->height = iy->yi - ip->yi;
 	        byp->imageCenterX = bpy->width/2;
@@ -177,6 +237,7 @@ void BlobDetector::findBeacons(){
          if(ip->yi < iy->yi) { // blue over yellow
             if (bpy->seen == false){
                 bpy->seen = true;
+                 printf("yes its true\n");
 		bpy->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		bpy->height = ip->yi - iy->yi;
 	        bpy->imageCenterX = bpy->width/2;
@@ -187,6 +248,7 @@ void BlobDetector::findBeacons(){
         else if (iy->yi < ip->yi) { // yellow over blue
             if (byp->seen == false){
                 byp->seen = true;
+                 printf("yes its true\n");
 		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
 		byp->height = iy->yi - ip->yi;
 	        byp->imageCenterX = bpy->width/2;
@@ -198,10 +260,18 @@ void BlobDetector::findBeacons(){
     }     
   }
 
- // check if beacons are 
+ 
   
  }
-void BlobDetector::searchMatch(WorldObject *b, Color top, Color bot){
+
+void BlobDetector::findBeacons2(){
+  BlobCollection probPinks;
+  BlobCollection probBlues;
+  BlobCollection probYellows;
+  std::remove_copy_if(horizontalBlob[c_PINK].begin(), horizontalBlob[c_PINK].end(),std::back_inserter(probPinks), areaOutOfRangePredicate);
+  std::remove_copy_if(horizontalBlob[c_BLUE].begin(), horizontalBlob[c_BLUE].end(),std::back_inserter(probBlues), areaOutOfRangePredicate);
+  std::remove_copy_if(horizontalBlob[c_YELLOW].begin(), horizontalBlob[c_YELLOW].end(),std::back_inserter(probYellows), areaOutOfRangePredicate);
   
+
 }
 

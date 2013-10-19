@@ -10,7 +10,7 @@ struct VisionPoint {
   bool isValid;
   struct VisionPoint* parent; // poiints to the parent of a region
   //struct VisionPoint* next; // points to the next run in its region
-  int childCount; // stores the number of children having this as parent
+  int pixelCount; // stores the number of children having this as parent
   Blob *parentBlob;
 };
 #endif

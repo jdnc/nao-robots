@@ -19,13 +19,21 @@ class BlobDetector : public ObjectDetector {
   void init(TextLogger* tl){textlogger = tl;};
   std::vector<BlobCollection> horizontalBlob, verticalBlob;
   void formBlobs(uint16_t c);
+  void preProcess(uint16_t c);
   void mergeBlobs(BlobCollection &, uint16_t, uint16_t);
   void findBeacons();
-  void searchMatch(WorldObject *, Color, Color);
+  void findBeacons();
  
  private:
   Classifier*& classifier_;
   TextLogger* textlogger;
 };
 
+struct ProbBeacon{
+  Blob * top;
+  Blob * bottom;
+  Color topColor;
+  Color botColor;
+  double likely; //probability estimate from aspect ratio
+};
 #endif

@@ -102,15 +102,14 @@ void ImageProcessor::processFrame(){
    classifier_->constructRuns();
    classifier_->connectComponents(c_BLUE);
    classifier_->connectComponents(c_PINK);
-  /*classifier_->connectComponents(c_YELLOW);
-   blob_detector_->formBlobs(c_YELLOW); 
-   
-  
-   classifier_->connectComponents(c_BLUE);  
-   blob_detector_->formBlobs(c_BLUE);
+   classifier_->connectComponents(c_YELLOW);
+   //classifier_->connectComponents(c_BLUE);  
+   //blob_detector_->formBlobs(c_BLUE);
   //for(uint16_t i = ; i<NUM_COLORS; i++)*/
-   blob_detector_->formBlobs(c_BLUE); 
-   blob_detector_->formBlobs(c_PINK); 
+   blob_detector_->preProcess(c_BLUE); 
+   blob_detector_->preProcess(c_PINK); 
+   blob_detector_->preProcess(c_YELLOW); 
+   blob_detector_->findBeacons();
    }
 }
 

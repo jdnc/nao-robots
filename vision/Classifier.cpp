@@ -194,7 +194,7 @@ void Classifier::constructRuns(){
             v->isValid = true;
             //v->next = NULL;
             v->parent = v; 
-            v->childCount = 0;
+            v->pixelCount = v->dx;
             unique++;
             //printf("Struct stats\n"); //DEBUG
             //printf("%u %u", v->xi, v->yi); //DEBUG
@@ -274,17 +274,15 @@ void Classifier::connectComponents(uint16_t rkcolor){
           while(p != p->parent) p = p->parent;
           n->parent = p;
 	  n->lbIndex = p->lbIndex;
-          p->childCount++;
         }
         else{
           n->parent = p->parent;
-          p->childCount++;
         }
         
       }
     }
 
- //remove all single pixels and stuff with very less children
+ 
   
  
  
