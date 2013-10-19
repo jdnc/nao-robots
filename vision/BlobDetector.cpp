@@ -104,7 +104,7 @@ BlobCollection::iterator b1, b2;
 ProbBeacon pb;
 for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
     for(b2=c2Blobs.begin(); b2!=c2Blobs.end(); b2++){
-      if(centroidcc(*b1, *b2)) {
+      if(centroidcc(*b1, *b2) && ratiocc(*b1, *b2) && rangecc(*b1, *b2)) {
 	if (b1->yi < b2->yi){
 	   pb.top = &(*b1);
 	   pb.bottom = &(*b2);
@@ -117,8 +117,11 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
 	   pb.topColor = c2;
 	   pb.botColor = c1;
        }
-       pb.likely = max(b1->dx, b2->dx)/ (b1->dy + b2->dy); //aspect ratio
-       ProbBeacons.push_back(pb);
+       //floating top and bottom?
+       pb.likely = (b1->dy + b2->dy)/max(b1->dx, b2->dx); //aspect ratio
+       if(floatcc(pb) && pb.likely <=2){
+         ProbBeacons.push_back(pb);
+       }
        }
      }  
    }
