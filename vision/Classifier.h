@@ -35,6 +35,10 @@ class Classifier {
   void setStepScale(int hscale, int vscale);
   void getStepSize(int& hstep, int& vstep);
   void getStepScale(int& hscale, int& vscale);
+  static uint16_t range_sum(uint16_t x, uint16_t w){ //inline for efficiency
+  //returns sum of all integers in interval[x, x+w)
+  return (w*(2*x + w-1)/2);
+  }
  private:
   bool setImagePointers();
   const VisionBlocks& vblocks_;

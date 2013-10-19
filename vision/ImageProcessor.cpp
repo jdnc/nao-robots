@@ -109,7 +109,7 @@ void ImageProcessor::processFrame(){
    blob_detector_->preProcess(c_BLUE); 
    blob_detector_->preProcess(c_PINK); 
    blob_detector_->preProcess(c_YELLOW); 
-   blob_detector_->findBeacons();
+   blob_detector_->findBeacons2();
    }
 }
 

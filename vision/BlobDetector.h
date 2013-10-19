@@ -13,6 +13,14 @@
   
 typedef std::vector<Blob> BlobCollection;
 
+struct ProbBeacon{
+  Blob * top;
+  Blob * bottom;
+  Color topColor;
+  Color botColor;
+  double likely; //probability estimate from aspect ratio
+};
+
 class BlobDetector : public ObjectDetector {
  public:
   BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
@@ -22,18 +30,13 @@ class BlobDetector : public ObjectDetector {
   void preProcess(uint16_t c);
   void mergeBlobs(BlobCollection &, uint16_t, uint16_t);
   void findBeacons();
-  void findBeacons();
- 
+  void findBeacons2();
+  void findProbBeacons(BlobCollection &c1Blobs, BlobCollection &c2Blobs, Color c1, Color c2, vector<ProbBeacon>& ProbBeacons);
+  WorldObject * getBeaconFromColors(Color top, Color bottom);
  private:
   Classifier*& classifier_;
   TextLogger* textlogger;
 };
 
-struct ProbBeacon{
-  Blob * top;
-  Blob * bottom;
-  Color topColor;
-  Color botColor;
-  double likely; //probability estimate from aspect ratio
-};
+
 #endif

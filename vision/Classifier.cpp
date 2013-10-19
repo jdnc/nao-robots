@@ -155,7 +155,6 @@ void Classifier::getStepScale(int& h, int& v){
 
 void Classifier::constructRuns(){
     printf("Hare Krishna\n");
-    int unique = 0;
     uint16_t colorIndex;
     unsigned char runColor;
     //construct horizontal runs
@@ -190,12 +189,11 @@ void Classifier::constructRuns(){
             v->yf = yf;
             v->dy = 0;
             v->dx = v->xf - v->xi;
-            v->lbIndex = unique;
             v->isValid = true;
-            //v->next = NULL;
             v->parent = v; 
             v->pixelCount = v->dx;
-            unique++;
+            v->avgX = range_sum(v->xi, v->dx);
+            v->avgY = range_sum(v->yi, v->dy);
             //printf("Struct stats\n"); //DEBUG
             //printf("%u %u", v->xi, v->yi); //DEBUG
             //increment run count for current color and line
@@ -281,10 +279,6 @@ void Classifier::connectComponents(uint16_t rkcolor){
         
       }
     }
-
- 
-  
- 
  
 }
 
