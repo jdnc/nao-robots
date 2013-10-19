@@ -142,128 +142,6 @@ void BlobDetector::formBlobs(uint16_t c){
 void BlobDetector::mergeBlobs(BlobCollection& blobs, uint16_t x, uint16_t y){
 }
 
-void BlobDetector::findBeacons(){
-  double low_t = 350;
-  double up_t = 17000;
-  // find pink blobs first
-  BlobCollection& pinks = horizontalBlob[c_PINK];
-  BlobCollection& blues = horizontalBlob[c_BLUE];
-  BlobCollection& yellows = horizontalBlob[c_YELLOW];
-  // already sorted
-  // remove extra large and extra small
-  BlobCollection::iterator ip, ib, iy;
-  for(ip = pinks.begin(); ip != pinks.end();){
-      double p_area = ip->dx * ip->dy;
-      if (p_area >= up_t || p_area <=low_t) ip = pinks.erase(ip);
-      else ++ip;
-  }
-  for(ip = yellows.begin(); ip != yellows.end();){
-      double p_area = ip->dx * ip->dy;
-      if (p_area >= up_t || p_area <=low_t) ip = yellows.erase(ip);
-      else ++ip;
-  }
-  for(ip = blues.begin(); ip != blues.end();){
-      double p_area = ip->dx * ip->dy;
-      if (p_area >= up_t || p_area <=low_t) ip = blues.erase(ip);
-      else ++ip;
-  }
-  WorldObject *bpy = &vblocks_.world_object->objects_[WO_BEACON_PINK_YELLOW];
-  WorldObject *bpb = (&vblocks_.world_object->objects_[WO_BEACON_PINK_BLUE]);
-  WorldObject *bby = (&vblocks_.world_object->objects_[WO_BEACON_BLUE_YELLOW]);
-  WorldObject *byb = (&vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE]);
-  WorldObject *byp = (&vblocks_.world_object->objects_[WO_BEACON_YELLOW_PINK]);
-  WorldObject *bbp = (&vblocks_.world_object->objects_[WO_BEACON_BLUE_PINK]);
-  // yellow and pink
-  for(ip = pinks.begin(); ip != pinks.end(); ip++){
-    for(iy = yellows.begin(); iy != yellows.end(); iy++){
-      if(centroidcc(*ip, *iy) && ratiocc(*ip, *iy) && rangecc(*ip, *iy)){
-         if(ip->yi < iy->yi) { // pink over yellow
-            if (bpy->seen == false){
-                printf("yes its true\n");
-                bpy->seen = true;
-		bpy->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
-		bpy->height = ip->yi - iy->yi;
-	        bpy->imageCenterX = bpy->width/2;
-                bpy->imageCenterY = bpy->height/2;
-                printf("BPY centerX: %d, centerY:%d", bpy->imageCenterX, bpy->imageCenterY);
-                bpy->fromTopCamera = true;
-            }
-         }
-        else if (iy->yi < ip->yi) { // yellow over pink
-            if (byp->seen == false){
-                 printf("yes its true\n");
-                byp->seen = true;
-		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
-		byp->height = iy->yi - ip->yi;
-	        byp->imageCenterX = bpy->width/2;
-                byp->imageCenterY = bpy->height/2;
-                byp->fromTopCamera = true;
-            }
-         }
-      }
-    }     
-  }
-
-  // pink and blue
-  for(ip = pinks.begin(); ip != pinks.end(); ip++){
-    for(iy = blues.begin(); iy != blues.end(); iy++){
-      if(centroidcc(*ip, *iy) && ratiocc(*ip, *iy) && rangecc(*ip, *iy)){
-         if(ip->yi < iy->yi) { // pink over blue
-            if (bpy->seen == false){
-                 printf("yes its true\n");
-                bpy->seen = true;
-		bpy->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
-		bpy->height = ip->yi - iy->yi;
-	        bpy->imageCenterX = bpy->width/2;
-                bpy->imageCenterY = bpy->height/2;
-                bpy->fromTopCamera = true;
-            }
-         }
-        else if (iy->yi < ip->yi) { // blue over pink
-            if (byp->seen == false){
-                byp->seen = true;
-                 printf("yes its true\n");
-		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
-		byp->height = iy->yi - ip->yi;
-	        byp->imageCenterX = bpy->width/2;
-                byp->imageCenterY = bpy->height/2;
-                byp->fromTopCamera = true;
-            }
-         }
-      }
-    }     
-  }
-
-  // yellow and blue
-  for(ip = blues.begin(); ip != blues.end(); ip++){
-    for(iy = yellows.begin(); iy != yellows.end(); iy++){
-      if(centroidcc(*ip, *iy) && ratiocc(*ip, *iy) && rangecc(*ip, *iy)){
-         if(ip->yi < iy->yi) { // blue over yellow
-            if (bpy->seen == false){
-                bpy->seen = true;
-                 printf("yes its true\n");
-		
-            }
-         }
-        else if (iy->yi < ip->yi) { // yellow over blue
-            if (byp->seen == false){
-                byp->seen = true;
-                 printf("yes its true\n");
-		byp->width = max(ip->xf-ip->xi, iy->xf-iy->xi);
-		byp->height = iy->yi - ip->yi;
-	        byp->imageCenterX = bpy->width/2;
-                byp->imageCenterY = bpy->height/2;
-                byp->fromTopCamera = true;
-            }
-         }
-      }
-    }     
-  }
-
- 
-  
- }
-
 void BlobDetector::findBeacons2(){
   BlobCollection probPinks;
   BlobCollection probBlues;
@@ -277,6 +155,7 @@ void BlobDetector::findBeacons2(){
   findProbBeacons(probPinks, probBlues, c_PINK, c_BLUE, ProbBeacons);
   findProbBeacons(probPinks, probYellows, c_PINK, c_YELLOW, ProbBeacons);
   findProbBeacons(probYellows, probBlues, c_YELLOW, c_BLUE, ProbBeacons);
+  // draw 
   for(it=ProbBeacons.begin(); it!=ProbBeacons.end(); it++){
     int centerX, centerY;
     centerX = it->top->xi + it->top->dx/2;
