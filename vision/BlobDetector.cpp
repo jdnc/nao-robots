@@ -82,6 +82,8 @@ void BlobDetector::findBeacons2(){
   findProbBeacons(probPinks, probBlues, c_PINK, c_BLUE, ProbBeacons);
   findProbBeacons(probPinks, probYellows, c_PINK, c_YELLOW, ProbBeacons);
   findProbBeacons(probYellows, probBlues, c_YELLOW, c_BLUE, ProbBeacons);
+  //remove overlapping probable beacons
+  removeOverlapping(ProbBeacons, probPinks, probBlues, probYellows);
   // draw 
   for(it=ProbBeacons.begin(); it!=ProbBeacons.end(); it++){
     int centerX, centerY;
@@ -148,4 +150,51 @@ WorldObject * BlobDetector::getBeaconFromColors(Color top, Color bottom){
     return &vblocks_.world_object->objects_[WO_BEACON_YELLOW_PINK];
   
   return NULL;
+}
+
+void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollection& probPinks, BlobCollection& probYellows, BlobCollection& probBlues){
+  // check amongst all blobs of other colors to see if it aligns
+  // this is irrespective of size
+  // though considering the size would definitely have been more elegant
+  BlobCollection::iterator itblob;
+  vector<ProbBeacon>::iterator itbeacon;
+  for(itbeacon=ProbBeacons.begin(); itbeacon!=ProbBeacons.end();){
+    bool flag = false;
+;
+    
+    //check pink blobs
+    for(itblob=probPinks.begin(); itblob!=probPinks.end(); itblob++){
+      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
+      if(area > 355){
+         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+            flag = true;
+      }
+    }
+
+  //check blue blobs
+   for(itblob=probBlues.begin(); itblob!=probBlues.end(); itblob++){
+      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
+      if(area > 355){
+         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+            flag = true;
+      }
+    }
+
+  //check yellow blobs
+  for(itblob=probYellows.begin(); itblob!=probYellows.end(); itblob++){
+      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
+      if(area > 355){
+         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+            flag = true;
+      }
+    }
+
+  if (flag)
+    itbeacon = ProbBeacons.erase(itbeacon);
+  else itbeacon++;
+
+  }
+
+return;
+ 
 }
