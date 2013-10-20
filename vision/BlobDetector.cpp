@@ -82,6 +82,8 @@ void BlobDetector::findBeacons2(){
   findProbBeacons(probPinks, probBlues, c_PINK, c_BLUE, ProbBeacons);
   findProbBeacons(probPinks, probYellows, c_PINK, c_YELLOW, ProbBeacons);
   findProbBeacons(probYellows, probBlues, c_YELLOW, c_BLUE, ProbBeacons);
+  //horizontalBlob[c_YELLOW] = probYellows; //debug
+  //std::cout <<"size:%d"<<horizontalBlob[c_YELLOW].size();
   //remove overlapping probable beacons
   removeOverlapping(ProbBeacons, probPinks, probBlues, probYellows);
   // draw 
@@ -182,10 +184,15 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
   //check yellow blobs
   for(itblob=probYellows.begin(); itblob!=probYellows.end(); itblob++){
       
-         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
-            flag = true;
-      
+         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom){
+            //check if its not just a yellow goalpost in background
+            //if(!( itblob->yi <= (itbeacon->top->yi + itbeacon->top->dy/2) /*&& (itblob->dy/itblob->dx > 2 || itblob->dy/itblob->dx < 0.6))*/))
+            if(itblob->dy/itbeacon->top->dy > 2); 
+            else flag = true;
+      }
     }
+
+   
 
   if (flag)
     itbeacon = ProbBeacons.erase(itbeacon);

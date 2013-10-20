@@ -30,6 +30,6 @@ bool floatcc(ProbBeacon &pb){
 }
  
 bool floatcc(Blob& b1, Blob& b2){
-  return(min(abs(b1.yf-b2.yi), abs(b1.yi-b2.yf)) <= 10);
+  return(min(abs(b1.yf-b2.yi), abs(b1.yi-b2.yf)) <= 20); //increasing threshold to be safe
 }
 #endif
