@@ -6,6 +6,7 @@ import pose, head, kicks
 import commands, cfgstiff
 import testFSM
 import math
+import head
 
 def areDistinct(state1, state2):
   if state1 == core.INITIAL and state2 == core.FINISHED: return False
@@ -35,14 +36,17 @@ class Ready(HeadBodyTask):
     commands.setStiffness()
     HeadBodyTask.run(self)
 
-class Playing(Task):
+class Playing(HeadBodyTask):
+  def __init__(self):
+    HeadBodyTask.__init__(self, 
+      head.Scan(period = 3.0, maxPan = 105.0 * core.DEG_T_RAD, numSweeps = 4),
+      Walk()
+    )
+
   def run(self):
     commands.setStiffness()
-    commands.setsetWalkVelocity(.5, 0, 0.0)
-    commands.setHeadPan(math.pi/4.0, 3)
-    commands.setHeadPan(-math.pi/4.0, 3)
-    if self.getTime() > 15.0:
-      self.finish()
+    commands.setWalkVelocity(.2, 0, 0.0)
+    HeadBodyTask.run(self)
 
 class Testing(Task):
   def run(self):
@@ -50,4 +54,11 @@ class Testing(Task):
     commands.setWalkVelocity(.5, .2, 0.0)
     if self.getTime() > 5.0:
       self.subtask = pose.Sit()
-      self.finish()
+      self.finish
+
+
+class Walk(Task):
+  def __init__(self):
+    Task.__init__(self)
+  def run(self):
+    commands.setWalkVelocity(.2, 0, 0.0)
