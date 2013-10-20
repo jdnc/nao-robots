@@ -58,8 +58,10 @@ void BlobDetector::formBlobs(uint16_t c){
       b.invalid = false;
       b.dx = n->xf - n->xi;
       b.dy = n->yf - n->yi;
-      b.avgX = n->avgX / n->pixelCount;
-      b.avgY = n->avgY / n->pixelCount;
+      //b.avgX = n->avgX / n->pixelCount;
+      //b.avgY = n->avgY / n->pixelCount;
+      b.avgX = b.xi + b.dx/2;
+      b.avgY = b.yi + b.dy/2;
       horizontalBlob[c].push_back(b);
   }  
   //sorted in horizontalBlob
@@ -82,7 +84,7 @@ void BlobDetector::findBeacons2(){
   findProbBeacons(probPinks, probBlues, c_PINK, c_BLUE, ProbBeacons);
   findProbBeacons(probPinks, probYellows, c_PINK, c_YELLOW, ProbBeacons);
   findProbBeacons(probYellows, probBlues, c_YELLOW, c_BLUE, ProbBeacons);
-  //horizontalBlob[c_YELLOW] = probYellows; //debug
+  horizontalBlob[c_YELLOW] = probYellows; //debug
   //std::cout <<"size:%d"<<horizontalBlob[c_YELLOW].size();
   //remove overlapping probable beacons
   removeOverlapping(ProbBeacons, probPinks, probBlues, probYellows);
@@ -115,7 +117,7 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
 	   pb.topColor = c1;
 	   pb.botColor = c2;
 	}
-	else{
+	else if(b2->yi < b1->yi){
 	   pb.top = &(*b2);
 	   pb.bottom = &(*b1);
 	   pb.topColor = c2;
@@ -123,8 +125,11 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
        }
        //floating top and bottom?
        pb.likely = (b1->dy + b2->dy)/max(b1->dx, b2->dx); //aspect ratio
-       if(floatcc(pb) && pb.likely <=2){
+       if(floatcc(pb) && pb.likely <=2 && pb.likely>=0.6){
          ProbBeacons.push_back(pb);
+         std::cout<<"top"<<pb.top->xi<<" "<<pb.top->yi;
+         std::cout<<"bot"<<pb.bottom->xi<<" "<<pb.bottom->yi;
+         //std::cout<<"blob"<<itbeacon->bottom->xi<<" "<<itbeacon->bottom->yi;
        }
        }
      }  
@@ -168,7 +173,7 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
     for(itblob=probPinks.begin(); itblob!=probPinks.end(); itblob++){
        //don't want too small blobs to be considered overlapping
      
-         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+         if(((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top)) || (centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom))) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
             flag = true;
       
     }
@@ -176,21 +181,24 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
   //check blue blobs
    for(itblob=probBlues.begin(); itblob!=probBlues.end(); itblob++){
       
-         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+         if(((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top)) || (centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom))) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom){
             flag = true;
-      
+         }
     }
 
-  //check yellow blobs
+ //check yellow blobs
   for(itblob=probYellows.begin(); itblob!=probYellows.end(); itblob++){
       
-         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom){
+         if(((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top)) || (centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom))) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom){
             //check if its not just a yellow goalpost in background
-            //if(!( itblob->yi <= (itbeacon->top->yi + itbeacon->top->dy/2) /*&& (itblob->dy/itblob->dx > 2 || itblob->dy/itblob->dx < 0.6))*/))
-            if(itblob->dy/itbeacon->top->dy > 2); 
-            else flag = true;
+            if(( itblob->yi <= (itbeacon->top->yi + itbeacon->top->dy/2) && (itblob->dy/itblob->dx > 2 || itblob->dy/itblob->dx < 0.6)))	;
+            //if(itblob->dy/itbeacon->top->dy > 2); 
+            else{
+               flag = true;
+               
+           }
       }
-    }
+    } //debug
 
    
 

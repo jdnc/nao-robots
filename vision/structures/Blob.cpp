@@ -6,5 +6,5 @@ bool sortBlobAreaPredicate(const Blob& left, const Blob& right) {
 
 bool areaOutOfRangePredicate(const Blob& b){
    double area = b.dx * b.dy;
-   return area <= 350 || area >= 17000;
+   return area <= 350 || area >= 18000;
 }
