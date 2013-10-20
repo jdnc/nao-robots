@@ -31,6 +31,7 @@ class BlobDetector : public ObjectDetector {
   void findBeacons2();
   void findProbBeacons(BlobCollection &c1Blobs, BlobCollection &c2Blobs, Color c1, Color c2, vector<ProbBeacon>& ProbBeacons);
   void removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollection&, BlobCollection&, BlobCollection&);
+  void removeGoalSitter(vector<ProbBeacon> &);
   WorldObject * getBeaconFromColors(Color top, Color bottom);
  private:
   Classifier*& classifier_;

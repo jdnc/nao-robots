@@ -84,10 +84,12 @@ void BlobDetector::findBeacons2(){
   findProbBeacons(probPinks, probBlues, c_PINK, c_BLUE, ProbBeacons);
   findProbBeacons(probPinks, probYellows, c_PINK, c_YELLOW, ProbBeacons);
   findProbBeacons(probYellows, probBlues, c_YELLOW, c_BLUE, ProbBeacons);
-  horizontalBlob[c_YELLOW] = probYellows; //debug
+  //horizontalBlob[c_YELLOW] = probYellows; //debug
   //std::cout <<"size:%d"<<horizontalBlob[c_YELLOW].size();
   //remove overlapping probable beacons
   removeOverlapping(ProbBeacons, probPinks, probBlues, probYellows);
+  //remove those sitting on top of goalposts
+  removeGoalSitter(ProbBeacons);
   // draw 
   for(it=ProbBeacons.begin(); it!=ProbBeacons.end(); it++){
     int centerX, centerY;
@@ -127,8 +129,8 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
        pb.likely = (b1->dy + b2->dy)/max(b1->dx, b2->dx); //aspect ratio
        if(floatcc(pb) && pb.likely <=2 && pb.likely>=0.6){
          ProbBeacons.push_back(pb);
-         std::cout<<"top"<<pb.top->xi<<" "<<pb.top->yi;
-         std::cout<<"bot"<<pb.bottom->xi<<" "<<pb.bottom->yi;
+         //std::cout<<"top"<<pb.top->xi<<" "<<pb.top->yi;
+         //std::cout<<"bot"<<pb.bottom->xi<<" "<<pb.bottom->yi;
          //std::cout<<"blob"<<itbeacon->bottom->xi<<" "<<itbeacon->bottom->yi;
        }
        }
@@ -210,4 +212,27 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
 
 return;
  
+}
+
+void BlobDetector::removeGoalSitter(vector<ProbBeacon>& ProbBeacons){
+   vector<ProbBeacon>::iterator itbeacon;
+   BlobCollection::iterator itblob;
+   for(itbeacon=ProbBeacons.begin(); itbeacon!=ProbBeacons.end();){
+     bool flag = false;
+     for(itblob=horizontalBlob[c_YELLOW].begin(); itblob!=horizontalBlob[c_YELLOW].end(); ++itblob){
+       bool c1 = (itblob->dx * itblob->dy) >= 20000;
+       bool c2 = (itbeacon->bottom->avgX > itblob->xi) && (itbeacon->bottom->avgX <= itblob->xf);
+       bool c3 = abs(itbeacon->bottom->yf-itblob->yi)<=itbeacon->bottom->dy;
+       if(c1 && c2 && c3) {
+          flag = true;
+          break;
+       }
+    }
+    if(flag) 
+      itbeacon = ProbBeacons.erase(itbeacon);
+    else 
+      itbeacon++;
+   }
+
+
 }
