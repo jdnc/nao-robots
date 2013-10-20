@@ -164,29 +164,27 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
     
     //check pink blobs
     for(itblob=probPinks.begin(); itblob!=probPinks.end(); itblob++){
-      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
-      if(area > 355){
-         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+       //don't want too small blobs to be considered overlapping
+     
+         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
             flag = true;
-      }
+      
     }
 
   //check blue blobs
    for(itblob=probBlues.begin(); itblob!=probBlues.end(); itblob++){
-      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
-      if(area > 355){
-         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+      
+         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
             flag = true;
-      }
+      
     }
 
   //check yellow blobs
   for(itblob=probYellows.begin(); itblob!=probYellows.end(); itblob++){
-      int area = itblob->dx * itblob->dy; //don't want too small blobs to be considered overlapping
-      if(area > 355){
-         if((centroidcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
+      
+         if((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top) || centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom)) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom)
             flag = true;
-      }
+      
     }
 
   if (flag)
