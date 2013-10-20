@@ -39,7 +39,7 @@ class Ready(HeadBodyTask):
 class Playing(HeadBodyTask):
   def __init__(self):
     HeadBodyTask.__init__(self, 
-      head.Scan(period = 3.0, maxPan = 105.0 * core.DEG_T_RAD, numSweeps = 4),
+      head.Scan(period = 6.0, maxPan = 60.0 * core.DEG_T_RAD, numSweeps = 2),
       Walk()
     )
 
@@ -61,4 +61,4 @@ class Walk(Task):
   def __init__(self):
     Task.__init__(self)
   def run(self):
-    commands.setWalkVelocity(.2, 0, 0.0)
+    commands.setWalkVelocity(.1, 0, 0.0)

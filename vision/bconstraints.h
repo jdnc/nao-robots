@@ -26,7 +26,7 @@ bool ratiocc(Blob &b1, Blob &b2){
 
 // floating constraint
 bool floatcc(ProbBeacon &pb){
-  return (pb.bottom->yi - pb.top->yf) <=3; 
+  return (pb.bottom->yi - pb.top->yf) <= 30; 
 }
  
 bool floatcc(Blob& b1, Blob& b2){
