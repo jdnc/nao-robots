@@ -9,10 +9,10 @@ bool centroidcc(Blob &b1, Blob &b2){
 }
 
 bool rangecc(Blob &b1, Blob &b2){
-  bool c1 = (b1.xf - b1.xi + 1) < 3 * (b2.xf - b2.xi + 1);
-  bool c2 = (b2.xf - b2.xi + 1) < 3 * (b1.xf - b1.xi + 1);
-  bool c3 = (b1.yf - b1.yi + 1) < 3 * (b2.yf - b2.yi + 1);
-  bool c4 = (b2.yf - b2.yi + 1) < 3 * (b1.yf - b1.yi + 1);
+  bool c1 = (b1.xf - b1.xi + 1) < 2 * (b2.xf - b2.xi + 1);
+  bool c2 = (b2.xf - b2.xi + 1) < 2 * (b1.xf - b1.xi + 1);
+  bool c3 = (b1.yf - b1.yi + 1) < 2 * (b2.yf - b2.yi + 1);
+  bool c4 = (b2.yf - b2.yi + 1) < 2 * (b1.yf - b1.yi + 1);
   return c1 && c2 && c3 && c4;
 }
 

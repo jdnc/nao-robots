@@ -45,7 +45,7 @@ class Playing(HeadBodyTask):
 
   def run(self):
     commands.setStiffness()
-    commands.setWalkVelocity(.2, 0, 0.0)
+    commands.setWalkVelocity(0.3, 0.0, 0.0)
     HeadBodyTask.run(self)
 
 class Testing(Task):

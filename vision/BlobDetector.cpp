@@ -127,6 +127,9 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
        }
        //floating top and bottom?
        pb.likely = (b1->dy + b2->dy)/max(b1->dx, b2->dx); //aspect ratio
+       //compare height of individual blobs
+       double indiHeight = b1->dy/b2->dy;
+       bool heightcc = indiHeight<=2 && indiHeight >= 0.6;
        if(floatcc(pb) && pb.likely <=2 && pb.likely>=0.6){
          ProbBeacons.push_back(pb);
          //std::cout<<"top"<<pb.top->xi<<" "<<pb.top->yi;
