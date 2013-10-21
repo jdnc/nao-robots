@@ -158,8 +158,8 @@ void Classifier::constructRuns(){
     uint16_t colorIndex;
     unsigned char runColor;
     //construct horizontal runs
-    printf("height : %d", iparams_.height);
-    printf("width : %d", iparams_.width);
+    //printf("height : %d", iparams_.height);
+    //printf("width : %d", iparams_.width);
     for(int j=0; j<iparams_.height; j++){
         uint16_t yi, yf;
         yi = yf = j;

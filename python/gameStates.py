@@ -39,7 +39,7 @@ class Ready(HeadBodyTask):
 class Playing(HeadBodyTask):
   def __init__(self):
     HeadBodyTask.__init__(self, 
-      head.Scan(period = 6.0, maxPan = 60.0 * core.DEG_T_RAD, numSweeps = 2),
+      head.Scan(period = 6.0, maxPan = 90.0 * core.DEG_T_RAD, numSweeps = 4),
       Walk()
     )
 

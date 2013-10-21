@@ -2,6 +2,7 @@
 #include<vision/bconstraints.h>
 #include<algorithm>
 #include<string>
+#include<vision/CameraMatrix.h>
 
 BlobDetector::BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : 
   DETECTOR_INITIALIZE, classifier_(classifier) {
@@ -95,7 +96,6 @@ void BlobDetector::findBeacons2(){
     int centerX, centerY;
     centerX = it->top->xi + it->top->dx/2;
     centerY = it->top->yi + it->top->dy/2 +it->bottom->dy/2;
-    //("Top color = %s Bott Color=%s centerX=%d centerY=%d", COLOR_NAME(it->topColor), COLOR_NAME(it->botColor), avgX, avgY); //debug
     wo = getBeaconFromColors(it->topColor, it->botColor);
     // set parameters
     wo->seen = true;
@@ -104,6 +104,9 @@ void BlobDetector::findBeacons2(){
     wo->imageCenterX = centerX;
     wo->imageCenterY = centerY;
     wo->fromTopCamera = true;
+    float dist1 = cmatrix_.getWorldDistanceByHeight(wo->height, 203.2);
+    float dist2 = cmatrix_.getWorldDistanceByHeight(wo->width, 114.3);
+     printf("Topcolor=%s BottColor=%s center=(%d,%d) bbox=[(%d,%d), (%d,%d)] distance=%lf\n", COLOR_NAME(it->topColor), COLOR_NAME(it->botColor), centerX, centerY, it->top->xi, it->top->yi, it->bottom->xf, it->bottom->yf, dist1); //debug
   }
 }
 
@@ -119,7 +122,7 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
 	   pb.topColor = c1;
 	   pb.botColor = c2;
 	}
-	else if(b2->yi < b1->yi){
+	else{
 	   pb.top = &(*b2);
 	   pb.bottom = &(*b1);
 	   pb.topColor = c2;
@@ -130,7 +133,7 @@ for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
        //compare height of individual blobs
        double indiHeight = b1->dy/b2->dy;
        bool heightcc = indiHeight<=2 && indiHeight >= 0.6;
-       if(floatcc(pb) && pb.likely <=2 && pb.likely>=0.6){
+       if(floatcc(pb) && pb.likely <=3 && pb.likely>=0.6){
          ProbBeacons.push_back(pb);
          //std::cout<<"top"<<pb.top->xi<<" "<<pb.top->yi;
          //std::cout<<"bot"<<pb.bottom->xi<<" "<<pb.bottom->yi;
