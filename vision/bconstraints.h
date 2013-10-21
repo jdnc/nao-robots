@@ -24,7 +24,13 @@ bool ratiocc(Blob &b1, Blob &b2){
   return c1 && c2;
 }
 
-// floating constraint
+bool pixelcc(Blob &b1, Blob &b2){
+ bool c1 = b1.correctPixelRatio >= 0.5 * b2.correctPixelRatio;
+ bool c2 = b2.correctPixelRatio >= 0.5 * b1.correctPixelRatio;
+ return c1 && c2;
+}
+
+// floating above  constraint
 bool floatcc(ProbBeacon &pb){
   return (pb.bottom->yi - pb.top->yf) <= 30; 
 }

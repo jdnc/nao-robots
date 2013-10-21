@@ -59,6 +59,7 @@ void BlobDetector::formBlobs(uint16_t c){
       b.invalid = false;
       b.dx = n->xf - n->xi;
       b.dy = n->yf - n->yi;
+      b.correctPixelRatio = n->pixelCount; //use it to store pixel count.
       //b.avgX = n->avgX / n->pixelCount;
       //b.avgY = n->avgY / n->pixelCount;
       b.avgX = b.xi + b.dx/2;
@@ -115,7 +116,7 @@ BlobCollection::iterator b1, b2;
 ProbBeacon pb;
 for(b1=c1Blobs.begin(); b1!=c1Blobs.end(); b1++){
     for(b2=c2Blobs.begin(); b2!=c2Blobs.end(); b2++){
-      if(centroidcc(*b1, *b2) && ratiocc(*b1, *b2) && rangecc(*b1, *b2)) {
+      if(centroidcc(*b1, *b2) && ratiocc(*b1, *b2) && rangecc(*b1, *b2) && pixelcc(*b1, *b2)) {
 	if (b1->yi < b2->yi){
 	   pb.top = &(*b1);
 	   pb.bottom = &(*b2);
@@ -199,7 +200,7 @@ void BlobDetector::removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollec
       
          if(((centroidcc(*itblob, *itbeacon->top) && floatcc(*itblob, *itbeacon->top)) || (centroidcc(*itblob, *itbeacon->bottom) && floatcc(*itblob, *itbeacon->bottom))) && &(*itblob) != itbeacon->top && &(*itblob) != itbeacon->bottom){
             //check if its not just a yellow goalpost in background
-            if(( itblob->yi <= (itbeacon->top->yi + itbeacon->top->dy/2) && (itblob->dy/itblob->dx > 2 || itblob->dy/itblob->dx < 0.6)))	;
+            if(( itblob->yi <= (itbeacon->top->yi + itbeacon->top->dy/2) && (itblob->dy/itblob->dx > 2 || itblob->dy/itblob->dx < 0.3)))	;
             //if(itblob->dy/itbeacon->top->dy > 2); 
             else{
                flag = true;

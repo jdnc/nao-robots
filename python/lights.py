@@ -115,7 +115,8 @@ def doEyeLights():
   elif (core.game_state.state == core.FINISHED):
     doFinishedEyeLights()
   else:
-    doPlayingEyeLights()
+    pass
+    #doPlayingEyeLights()
   if (core.robot_state.ignore_comms_):
     ledsC.allLeftEye(1,0,0)
 
