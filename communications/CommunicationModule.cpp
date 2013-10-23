@@ -188,11 +188,11 @@ void CommunicationModule::sendTeamUDP() {
   // ball loc
   // these are in cm (how its used by the filter)
   WorldObject* ball = &(world_objects_->objects_[WO_BALL]);
-  tp.locData.ballX = localization_->X30[localization_->bestModel];
-  tp.locData.ballY = localization_->X40[localization_->bestModel];
-  tp.locData.ballSDX = localization_->SRXX;
-  tp.locData.ballSDY = localization_->SRYY;
-  tp.locData.ballSDXY = localization_->SRXY;
+  //tp.locData.ballX = localization_->X30[localization_->bestModel];
+  //tp.locData.ballY = localization_->X40[localization_->bestModel];
+  //tp.locData.ballSDX = localization_->SRXX;
+  //tp.locData.ballSDY = localization_->SRYY;
+  //tp.locData.ballSDXY = localization_->SRXY;
 
   // send info about when we've heard from each teammate
   for (int j = WO_TEAM_FIRST; j <= WO_TEAM_LAST; j++){
@@ -308,9 +308,9 @@ void CommunicationModule::sendTeamUDP() {
   }
 
   // we dont know which way we're going
-  if (localization_->oppositeModels || localization_->fallenModels){
-    tp.bvrData.ballBid += 6000;
-  }
+  //if (localization_->oppositeModels || localization_->fallenModels){
+  //tp.bvrData.ballBid += 6000;
+  //}
 
   // state
   tp.bvrData.state = game_state_->state;
@@ -337,8 +337,8 @@ void CommunicationModule::sendTeamUDP() {
   //}
 
   // bad model ... ignore ball
-  if (localization_->bestAlpha < 0.8 || localization_->oppositeModels)
-    tp.bvrData.ballMissed = 60;
+  //if (localization_->bestAlpha < 0.8 || localization_->oppositeModels)
+  //tp.bvrData.ballMissed = 60;
 
 
   if (frame_info_->frame_id % 6 == 0 && frame_info_->source == MEMORY_ROBOT) {

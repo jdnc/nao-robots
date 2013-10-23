@@ -34,6 +34,7 @@ def processFrame():
       commands.setKickParameters(cfgkick.StraightKick, cfgkick.StraightSuperKick)
       core.world_objects.init(core.robot_state.team_)
       core.visionC.initSpecificModule()
+      core.localizationC.initSpecificModule()
       core.speech.say("Vision")
       firstFrame = False
 

@@ -11,10 +11,14 @@
 
 // setup constants for field size, landmark locations, etc
 
+const float BEACON_PIECE_HEIGHT = 200.0f;
+const float BEACON_HEIGHT = 2 * BEACON_PIECE_HEIGHT;
 const float BALL_RADIUS = 31;
 
-const float FIELD_Y = 6023;
-const float FIELD_X = 9003;
+const float FIELD_Y = 1500;
+const float FIELD_X = 2000;
+const Point2D FIELD_CORNER;
+/*const Point2D FIELD_CORNER(FIELD_X / 2, FIELD_Y / 2);*/
 const float GRASS_Y = FIELD_Y + 2 * 702;
 const float GRASS_X = FIELD_X + 2 * 702;
 
@@ -71,7 +75,15 @@ const Point2D landmarkLocation[] = {
   Point2D( FIELD_X / 2, GOAL_Y / 2 ),        // WO_OPP_LEFT_GOALPOST
 
   Point2D( -FIELD_X / 2, GOAL_Y / 2),        // WO_OWN_RIGHT_GOALPOST
-  Point2D( FIELD_X / 2, -GOAL_Y / 2)         // WO_OPP_RIGHT_GOALPOST
+  Point2D( FIELD_X / 2, -GOAL_Y / 2),        // WO_OPP_RIGHT_GOALPOST
+
+    // Beacons
+  Point2D(-FIELD_X / 2, -FIELD_Y/2),
+  Point2D(           0, -FIELD_Y/2),
+  Point2D( FIELD_X / 2, -FIELD_Y/2),
+  Point2D(-FIELD_X / 2,  FIELD_Y/2),
+  Point2D(           0,  FIELD_Y/2),
+  Point2D( FIELD_X / 2,  FIELD_Y/2),
 };
 
 
