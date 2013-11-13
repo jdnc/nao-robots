@@ -45,9 +45,23 @@ void VisionModule::specifyMemoryBlocks() {
   bottom_params_ = &image_->bottom_params_;
 }
 
+bool VisionModule::areFeetOnGround() {
+  float *feetSensors = sensors_->values_;
+  float total = 0.0f;
+  for(int i = fsrLFL; i <= fsrRRR; i++)
+    total += feetSensors[i];
+
+  return total > .3;
+}
+
+
 void VisionModule::processFrame() {
   // reset world objects
   world_objects_->reset();
+  
+  if(!areFeetOnGround()) {
+    return;
+  }
 
   visionLog((30, "Processing bottom camera"));
   bottom_processor_->processFrame();
@@ -59,6 +73,10 @@ void VisionModule::processFrame() {
 void VisionModule::updateTransforms() {
     top_processor_->updateTransform();
     bottom_processor_->updateTransform();
+}
+
+bool VisionModule::useSimColorTable() {
+  return (vision_frame_info_->source == MEMORY_SIM);
 }
 
 string VisionModule::getDataBase() {
@@ -135,32 +153,41 @@ void VisionModule::loadCalibration() {
 
 bool VisionModule::loadColorTables() {
   bool uniqueColorTablesAvailable = true;
+  if (useSimColorTable()) {
+    loadColorTable(Camera::BOTTOM, "sim.col");
+    // just set top to match bottom (esp so both pointers are the same, and editing either edits both in tool)
+    topColorTable = bottomColorTable;
+    topColorTableName = bottomColorTableName;
+  } else {
 
-  // Attempt to load robot-specific color tables if available
-  std::string bottomColorTableFile =
-    boost::lexical_cast<std::string>(getRobotId()) +
-    "bottom.col";
-  std::string topColorTableFile =
-    boost::lexical_cast<std::string>(getRobotId()) +
-    "top.col";
-  bool bottomOk = loadColorTable(Camera::BOTTOM, bottomColorTableFile.c_str(), false);
-  bool topOk = loadColorTable(Camera::TOP, topColorTableFile.c_str(), false);
+    // Attempt to load robot-specific color tables if available
+    std::string bottomColorTableFile =
+      boost::lexical_cast<std::string>(getRobotId()) +
+      "bottom.col";
+    std::string topColorTableFile =
+      boost::lexical_cast<std::string>(getRobotId()) +
+      "top.col";
+    bool bottomOk = loadColorTable(Camera::BOTTOM, bottomColorTableFile.c_str(), false);
+    bool topOk = loadColorTable(Camera::TOP, topColorTableFile.c_str(), false);
 
-  // If not available, then load the default top and bottom color tables
-  uniqueColorTablesAvailable = bottomOk && topOk;
-  if (!bottomOk) {
-    bottomOk = loadColorTable(Camera::BOTTOM, "defaultbottom.col");
-  }
-  if (!topOk) {
-    topOk = loadColorTable(Camera::TOP, "defaulttop.col");
-  }
+    // If not available, then load the default top and bottom color tables
+    uniqueColorTablesAvailable = bottomOk && topOk;
+    if (!bottomOk) {
+      bottomOk = loadColorTable(Camera::BOTTOM, "defaultbottom.col");
+    }
+    if (!topOk) {
+      topOk = loadColorTable(Camera::TOP, "defaulttop.col");
+    }
 
-  // If still not available, then load the single default color table
-  if (!bottomOk) {
-    bottomOk = loadColorTable(Camera::BOTTOM, "default.col");
-  }
-  if (!topOk) {
-    topOk = loadColorTable(Camera::TOP, "default.col");
+    // If still not available, then load the single default color table
+    if (!bottomOk) {
+      bottomOk = loadColorTable(Camera::BOTTOM, "default.col");
+    }
+    if (!topOk) {
+      topOk = loadColorTable(Camera::TOP, "default.col");
+    }
+
+
   }
   return uniqueColorTablesAvailable;
 }

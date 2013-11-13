@@ -21,38 +21,67 @@ class Classifier {
  public:
   Classifier(const VisionBlocks& vblocks, const VisionParams& vparams, const ImageParams& iparams, const Camera::Type& camera);
   ~Classifier();
+
   void init(TextLogger* tl){textlogger = tl;};
+
+  VisionPoint ***horizontalPoint, ***verticalPoint;
+  uint32_t **horizontalPointCount, **verticalPointCount;
+
   bool classifyImage(unsigned char*);
-  void classifyImage(const std::vector<FocusArea>& areas, unsigned char* colorTable);
-  void classifyImage(const FocusArea& area, unsigned char* colorTable);
-  void constructRuns();
-  void connectComponents(uint16_t c);
+
+  void constructRuns(int colorFlags = ~0);
+  void setHorizon(HorizonLine);
+  void preProcessPoints();
+  void preProcessGoalPoints();
+  bool didHighResBallScan;
+
+
+  void setStepScale(int,int);
+  void getStepSize(int&,int&);
+  void getStepScale(int&,int&);
+  bool startHighResGoalScan();
+  bool startHighResBallScan();
+  void completeHighResScan();
   inline Color xy2color(int x, int y) {
     return (Color)segImg_[y * iparams_.width + x];
   }
-  VisionPoint ***horizontalPoint, ***verticalPoint;
-  uint32_t **horizontalPointCount, **verticalPointCount;
-  void setStepScale(int hscale, int vscale);
-  void getStepSize(int& hstep, int& vstep);
-  void getStepScale(int& hscale, int& vscale);
-  static uint16_t range_sum(uint16_t x, uint16_t w){ //inline for efficiency
-  //returns sum of all integers in interval[x, x+w)
-  return (w*(2*x + w-1)/2);
-  }
  private:
+  void clearPreviousHighResScans();
+  void classifyImage(const std::vector<FocusArea>& areas, unsigned char*);
+  void classifyImage(const FocusArea& area, unsigned char*);
+  void constructRuns(const std::vector<FocusArea>& areas, int colorFlags);
+  void constructRuns(const FocusArea& area, int colorFlags);
+
+  bool startHighResScan(Color, int hStepScale = 0, int vStepScale = 0);
+  void clearPoints(int colorFlags);
+  bool prepareFocusAreas(std::vector<FocusArea>& areas, Color c);
+
+  void completeHorizontalRun(uint8_t &hRunClr, int y, int hStartX, int finX);
+  void completeVerticalRun(uint8_t &runClr, int x, int vStartY);
+
   bool setImagePointers();
+  
   const VisionBlocks& vblocks_;
   const VisionParams& vparams_;
   const ImageParams& iparams_;
   const Camera::Type& camera_;
   bool initialized_;
+  bool doingHighResScan_;
+  bool bodyExclusionAvailable;
   TextLogger* textlogger;
+
+  // For excluding parts of the shoulder in the body
+  float bodyExclusionSlope[NUM_BODY_EXCL_POINTS];
+  float bodyExclusionOffset[NUM_BODY_EXCL_POINTS];
 
   unsigned char* img_;
   unsigned char* segImg_, *segImgLocal_;
   uint16_t vstep_, hstep_, vscale_, hscale_;
   HorizonLine horizon_;
   unsigned char* colorTable_;
+  bool* pointScanned;
+  uint16_t* vGreenPosition;
+  uint16_t* hGreenPosition;
   bool fromLog_;
 };
 #endif

@@ -13,30 +13,48 @@
   
 typedef std::vector<Blob> BlobCollection;
 
-struct ProbBeacon{
-  Blob * top;
-  Blob * bottom;
-  Color topColor;
-  Color botColor;
-  double likely; //probability estimate from aspect ratio
-};
-
 class BlobDetector : public ObjectDetector {
  public:
   BlobDetector(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
   void init(TextLogger* tl){textlogger = tl;};
+
   std::vector<BlobCollection> horizontalBlob, verticalBlob;
-  void formBlobs(uint16_t c);
-  void mergeBlobs(BlobCollection &, uint16_t, uint16_t);
-  void findBeacons2();
-  void findProbBeacons(BlobCollection &c1Blobs, BlobCollection &c2Blobs, Color c1, Color c2, vector<ProbBeacon>& ProbBeacons);
-  void removeOverlapping(vector<ProbBeacon> &ProbBeacons, BlobCollection&, BlobCollection&, BlobCollection&);
-  void removeGoalSitter(vector<ProbBeacon> &);
-  WorldObject * getBeaconFromColors(Color top, Color bottom);
+
+  void calculateHorizontalBlobData(unsigned char);
+  void calculateVerticalBlobData(unsigned char);
+  void verticalBlobSort(unsigned char);
+  void horizontalBlobSort(unsigned char);
+
+  void clearPointBlobReferences(Color color);
+  void formWhiteLineBlobs();
+  void formBlueBandBlobs();
+  void formPinkBandBlobs();
+  void formBlobs(Color color);
+  void formBlobs(BlobCollection& blobs, Color color);
+  void formOrangeBlobs();
+  void formYellowBlobs();
+  void resetOrangeBlobs();
+  void resetYellowBlobs();
+  void calculateBlobData(Color color);
+  void calculateBlobData(BlobCollection& blobs, Color color);
+  void calculateOrangeBlobData();
+  void calculateBandBlobData(Color color);
+
+  uint16_t mergeHorizontalBlobs(Color color, uint16_t* mergeIndex, int mergeCount);
+  uint16_t mergeVerticalBlobs(Color color, uint16_t* mergeIndex, int mergeCount);
+  uint16_t mergeBlobs(BlobCollection& blobs, uint16_t* mergeIndex, int mergeCount);
+  uint16_t mergeBlobs(Color color, std::vector<BlobCollection>& blobs, uint16_t* mergeIndex, int mergeCount);
+
+
  private:
+  void formBlobsWithVertLineSegs(unsigned char*,int);
+  void formBlobsWithHorzLineSegs(unsigned char*,int);
+  void setImagePointers();
+
   Classifier*& classifier_;
+  VisionPoint ***verticalPoint, ***horizontalPoint;
+  uint32_t **verticalPointCount, **horizontalPointCount;
   TextLogger* textlogger;
 };
-
 
 #endif

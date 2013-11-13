@@ -61,9 +61,12 @@ private:
 
   RobotCalibration calibration_;
 
+  bool isBottomCamera();
+  bool useSimColorTable();
   std::string getDataBase();
   int getRobotId();
   int getTeamColor();
+  bool areFeetOnGround();
 };
 
 #endif /* end of include guard: VISION_99KDYIX5 */

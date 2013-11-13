@@ -10,7 +10,8 @@
 #include <vision/LineDetector.h>
 #include <vision/GoalDetector.h>
 #include <vision/BallDetector.h>
-#include <vision/RobotDetector.h>
+#include <vision/BandRobotDetector.h>
+#include <vision/JerseyRobotDetector.h>
 #include <vision/CrossDetector.h>
 #include <vision/Classifier.h>
 #include <vision/RobotCalibration.h>
@@ -19,6 +20,8 @@
 
 class ImageProcessor {
   public:
+    typedef JerseyRobotDetector RobotDetector;
+    /*typedef BandRobotDetector RobotDetector;*/
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW  
     ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams, Camera::Type camera);
     void processFrame();
@@ -46,6 +49,9 @@ class ImageProcessor {
     BallCandidate* getBestBallCandidate();
     bool isImageLoaded();
   private:
+    int getTeamColor();
+    double getCurrentTime();
+
     VisionBlocks& vblocks_;
     const ImageParams& iparams_;
     Camera::Type camera_;
@@ -54,6 +60,10 @@ class ImageProcessor {
     VisionParams vparams_;
     unsigned char* color_table_;
     TextLogger* textlogger;
+
+    float getHeadPan() const;
+    float getHeadTilt() const;
+    float getHeadChange() const;
 
     RobotCalibration* calibration_;
     bool enableCalibration_;
