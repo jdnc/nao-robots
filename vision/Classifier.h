@@ -1,6 +1,9 @@
 #ifndef CLASSIFIER_H
 #define CLASSIFIER_H
 
+#include<opencv2/core/core.hpp>
+#include<opencv2/video/tracking.hpp>
+
 #include <math/Point.h>
 #include <list>
 #include <vector>
@@ -51,6 +54,7 @@ class Classifier {
   void classifyImage(const FocusArea& area, unsigned char*);
   void constructRuns(const std::vector<FocusArea>& areas, int colorFlags);
   void constructRuns(const FocusArea& area, int colorFlags);
+  void opticalFlow();
 
   bool startHighResScan(Color, int hStepScale = 0, int vStepScale = 0);
   void clearPoints(int colorFlags);

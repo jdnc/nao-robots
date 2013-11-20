@@ -544,3 +544,7 @@ void Classifier::clearPreviousHighResScans() {
     }
   }
 }
+
+void Classifier::opticalFlow(){
+
+}
