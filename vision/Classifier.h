@@ -2,11 +2,13 @@
 #define CLASSIFIER_H
 
 #include<opencv2/core/core.hpp>
+#include<opencv2/highgui/highgui.hpp>
 #include<opencv2/video/tracking.hpp>
 
 #include <math/Point.h>
 #include <list>
 #include <vector>
+
 
 #include <memory/TextLogger.h>
 #include <constants/ImageConstants.h>
@@ -24,7 +26,7 @@ class Classifier {
  public:
   Classifier(const VisionBlocks& vblocks, const VisionParams& vparams, const ImageParams& iparams, const Camera::Type& camera);
   ~Classifier();
-
+  void opticalFlow();
   void init(TextLogger* tl){textlogger = tl;};
 
   VisionPoint ***horizontalPoint, ***verticalPoint;
@@ -54,7 +56,7 @@ class Classifier {
   void classifyImage(const FocusArea& area, unsigned char*);
   void constructRuns(const std::vector<FocusArea>& areas, int colorFlags);
   void constructRuns(const FocusArea& area, int colorFlags);
-  void opticalFlow();
+ 
 
   bool startHighResScan(Color, int hStepScale = 0, int vStepScale = 0);
   void clearPoints(int colorFlags);

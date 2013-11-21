@@ -101,6 +101,8 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 }
 
 void ImageProcessor::processFrame(){
+  //trial
+  classifier_->opticalFlow();
   visionLog((30, "Process Frame camera %i", camera_));
 
   visionLog((30, "Calculating horizon line"));
