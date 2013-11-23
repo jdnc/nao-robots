@@ -16,6 +16,7 @@
 #include <vision/Classifier.h>
 #include <vision/RobotCalibration.h>
 #include <vision/structures/BallCandidate.h>
+#include <vision/VOdometer.h>
 #include <math/Pose3D.h>
 
 class ImageProcessor {
@@ -34,6 +35,7 @@ class ImageProcessor {
     RobotDetector* robot_detector_;
     CrossDetector* cross_detector_;
     Classifier* classifier_;
+    VOdometer* visual_odometer_;
     unsigned char* getImg();
     unsigned char* getSegImg();
     unsigned char* getColorTable();

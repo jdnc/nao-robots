@@ -544,7 +544,7 @@ void Classifier::clearPreviousHighResScans() {
     }
   }
 }
-
+/*
 void Classifier::opticalFlow(){
   const unsigned char * prevImage;
   const unsigned char * curImage;
@@ -553,9 +553,12 @@ void Classifier::opticalFlow(){
      prevImage = img_;
      cv::Mat cvPrevImage = color::rawToMat(prevImage, iparams_);
      cv::Mat cvCurImage = color::rawToMat(curImage, iparams_);
-     cv::Mat newmat;
+     cv::Mat flow;
      // trial run
-     cv::calcOpticalFlowSF(cvPrevImage, cvCurImage, newmat, 3, 2, 4);
+     //cv::calcOpticalFlowSF(cvPrevImage, cvCurImage, flow, 3, 2, 4);
+     //cv::calcOpticalFlowSF(cvPrevImage, cvCurImage, newmat, 3, 2, 4);
+     cv::calcOpticalFlowPyrLK(cvPrevImage, cvCurImage, flow, 3, 2, 4, 4.1, 25.5, 18, 55.0, 25.5, 0.35, 18, 55.0, 25.5, 10);
+
      std::cout<< "hare Krishna";
   }
-}
+}*/

@@ -13,6 +13,7 @@ ImageProcessor::ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams
   ball_detector_ = new BallDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
   robot_detector_ = new RobotDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
   cross_detector_ = new CrossDetector(DETECTOR_PASS_ARGS, classifier_, blob_detector_);
+  visual_odometer_ = new VOdometer(DETECTOR_PASS_ARGS, classifier_);
 }
 
 void ImageProcessor::init(TextLogger* tl){
@@ -102,7 +103,7 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 
 void ImageProcessor::processFrame(){
   //trial
-  classifier_->opticalFlow();
+  visual_odometer_->calcOpticalFlow();
   visionLog((30, "Process Frame camera %i", camera_));
 
   visionLog((30, "Calculating horizon line"));
