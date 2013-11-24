@@ -26,6 +26,10 @@ class VOdometer : public ObjectDetector{
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void calcOpticalFlow();
     void calcOdometry();
+    ~VOdometer() {
+      delete [] prevImage;
+      delete [] curImage;
+    }
 
   private:
     Classifier*& classifier_;
