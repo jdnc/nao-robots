@@ -14,9 +14,9 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
   vector<Mat> trackedImages;
   //just initialize the vector and previus image with whatever its seeing right now
   // this is in the opencv accepted Mat form
-  getImage(prevImage);
+  //getImage(prevImage);
   //Always remember to convert to grayscale when pushing out of the vector
-  trackedImages.push_back(prevImage);
+  //trackedImages.push_back(prevImage);
   lastImageIndex = 1;
   foundFeatures = false;
 }
@@ -28,7 +28,8 @@ void VOdometer::calcOpticalFlow(){
      // resize vector when required.
      Mat prevGray, curGray;
 
-     prevImage = trackedImages.back();
+     //prevImage = trackedImages.back();
+     getImage(prevImage);
      getImage(curImage);
      
      //convert both images from BGR to grayscale
@@ -109,27 +110,19 @@ void VOdometer::calcOpticalFlow(){
 void VOdometer::calcOdometry(){
 
 }
-
  void VOdometer::getImage(Mat& image){
-  if (vblocks_.image->loaded_){
+  if (vblocks_.image->loaded_)
+  {
   unsigned char * rawImage;
-  if (camera_ == Camera::TOP){
-    //rawImage.assign(getImageTop(), getImageTop() + IMG_SIZE);
-    rawImage = new unsigned char[640*480 + 1];
-    //rawImage = new unsigned char[vblocks_.image->top_params_.rawSize + 2];
-    memcpy(rawImage, vblocks_.image->getImgTop(),640*480);
-    rawImage[640*480 + 1] = NULL;  
+  rawImage = new unsigned char[iparams_.rawSize];
+  if(camera_ == Camera::TOP){
+  memcpy(rawImage, vblocks_.image->getImgTop(), iparams_.rawSize);
   }
   else{
-   rawImage = new unsigned char[640*480 +1];
-   memcpy(rawImage, vblocks_.image->getImgBottom(), 640*480);
-   rawImage[640*480 + 1] = NULL;  
+  memcpy(rawImage, vblocks_.image->getImgBottom(), iparams_.rawSize);
   }
-  
-  
   image = color::rawToMat(rawImage, iparams_);
   delete [] rawImage;
-  
   }
   return;
 }

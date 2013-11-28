@@ -103,7 +103,7 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 
 void ImageProcessor::processFrame(){
   //trial
-  visual_odometer_->calcOpticalFlow();
+  
   visionLog((30, "Process Frame camera %i", camera_));
 
   visionLog((30, "Calculating horizon line"));
@@ -195,6 +195,8 @@ void ImageProcessor::processFrame(){
   else visionLog((30, "Skipping cross detection"));
 
   visionLog((21, "Vision frame process complete"));
+
+  visual_odometer_->calcOpticalFlow();
 }
 
 
