@@ -22,20 +22,22 @@
 #include <math/Point.h>
 
 class VOdometer : public ObjectDetector{
-  public:  
+  public:
+    //static int IMG_SIZE;
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void calcOpticalFlow();
     void calcOdometry();
-    ~VOdometer() {
-      delete [] prevImage;
-      delete [] curImage;
-    }
-
+ 
   private:
     Classifier*& classifier_;
-    const unsigned char * prevImage;
-    const unsigned char * curImage;
-    
+    cv::Mat prevImage;
+    cv::Mat curImage;
+    vector<cv::Point2f> corners;
+    vector<cv::Point2f> outCorners;
+    vector<cv::Mat>trackedImages;
+    bool foundFeatures;
+    int lastImageIndex;
+    void getImage(cv::Mat &);
   
 
 };

@@ -36,17 +36,23 @@ class Ready(HeadBodyTask):
     commands.setStiffness()
     HeadBodyTask.run(self)
 
-class Playing(HeadBodyTask):
+class Playing(Task):
   def __init__(self):
+    """
     HeadBodyTask.__init__(self, 
       head.Scan(period = 6.0, maxPan = 90.0 * core.DEG_T_RAD, numSweeps = 4),
       Walk()
     )
+    """
+    Task.__init__(self)
+    
 
-  def run(self):
+  def run(self):  
     commands.setStiffness()
-    commands.setWalkVelocity(0.3, 0.0, 0.0)
-    HeadBodyTask.run(self)
+    commands.setWalkVelocity(0.5, 0.0, 0.0)    
+    #HeadBodyTask.run(self)
+    #Walk.run()
+   
 
 class Testing(Task):
   def run(self):
@@ -61,4 +67,5 @@ class Walk(Task):
   def __init__(self):
     Task.__init__(self)
   def run(self):
-    commands.setWalkVelocity(.1, 0, 0.0)
+    #pose.Stand()
+    commands.setWalkVelocity(0.3, 0, 0.0)
