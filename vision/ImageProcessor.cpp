@@ -195,8 +195,9 @@ void ImageProcessor::processFrame(){
   else visionLog((30, "Skipping cross detection"));
 
   visionLog((21, "Vision frame process complete"));
-
-  visual_odometer_->calcOpticalFlow();
+  if (camera_ == Camera::TOP){
+    visual_odometer_->calcOpticalFlow();
+  }
 }
 
 

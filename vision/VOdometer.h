@@ -24,6 +24,7 @@
 class VOdometer : public ObjectDetector{
   public:
     //static int IMG_SIZE;
+    int lastImageIndex;
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void calcOpticalFlow();
     void calcOdometry();
@@ -35,11 +36,9 @@ class VOdometer : public ObjectDetector{
     vector<cv::Point2f> corners;
     vector<cv::Point2f> outCorners;
     vector<cv::Mat>trackedImages;
-    bool foundFeatures;
-    int lastImageIndex;
+    vector< vector<cv::Point2f> > trackedFeatures;
+    bool foundFeatures;   
     void getImage(cv::Mat &);
-  
-
 };
 
 #endif
