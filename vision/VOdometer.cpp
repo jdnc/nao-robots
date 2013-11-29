@@ -13,11 +13,13 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
   //IMG_SIZE = iparams_.height * iparams_.width;
   // initialize prevImage to whatever its looking at now
   lastImageIndex = 0;
+  cumlTurn = 0;
   foundFeatures = false;
 }
 
 void VOdometer::calcOpticalFlow(){
      cout << "hare Krishna"<< "lastImageIndex" << lastImageIndex<<endl;
+     //cout << "fovx" << FOVx<<endl;
      vector<uchar> status;
      vector<float> err;
      TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
@@ -41,9 +43,9 @@ void VOdometer::calcOpticalFlow(){
        lastImageIndex = 0;
      }
      if(lastImageIndex == 0){
-       cout << "Now here" << endl;
+       //cout << "Now here" << endl;
        prevGray =  curGray;
-       goodFeaturesToTrack(curGray, corners, MAX_POINTS, 0.01, 10);     
+       goodFeaturesToTrack(curGray, corners, MAX_POINTS, 0.005, 20);     
        //get for subpixel level for more accuracy
        //Set the window size centered around the found pixel       
        //Set the termination criteria TODO finetune
@@ -64,8 +66,8 @@ void VOdometer::calcOpticalFlow(){
        calcOpticalFlowPyrLK(prevGray, curGray, corners, outCorners,
                             status, err, winSize, 4, termcrit);
        
-        cout << "prevCorners" << corners.size() << endl;
-        cout << "curCorners" << outCorners.size()<< endl;
+        //cout << "prevCorners" << corners.size() << endl;
+        //cout << "curCorners" << outCorners.size()<< endl;
        //only retain points that were found corresponding to the previous image
        //otherwise set them to -1
        int in = 0, out = 0;
@@ -76,18 +78,54 @@ void VOdometer::calcOpticalFlow(){
         in++;
         corners[i] = outCorners[i] = Point2f(-1.0f, -1.0f);
        }
+       else{
+       visionLog((8,"start %f %f end %f %f", corners[i].x,corners[i].y,outCorners[i].x, outCorners[i].y));
+       }
        }
         trackedImages.push_back(curGray);
         trackedFeatures.push_back(outCorners);
         lastImageIndex++;
       }
-     
+     visionLog((7, "angle is %f deg and total angle is %f deg lastImageindex %d",getIncAngle()*180/3.14159, cumlTurn, lastImageIndex -1 ));
+     cout <<"angle"<<getIncAngle()*180/3.14159<<"deg"<<endl;
+     cumlTurn += getIncAngle()*180/3.14159;
+     cout << "total angle change" << cumlTurn << endl;
 }
 
 void VOdometer::calcOdometry(){
 
 }
- void VOdometer::getImage(Mat& image){
+
+float VOdometer::getIncAngle(){
+  float ax, ay, bx, by, dx, dy;
+  vector<float> angles;
+  if (trackedFeatures.size() > 2){
+    outCorners = trackedFeatures[trackedFeatures.size() - 1];
+    corners = trackedFeatures[trackedFeatures.size() - 2]; 
+    for(int i = 0; i < outCorners.size(); i++){
+      if(corners[i] == Point2f(-1.0f, -1.0f) || outCorners[i] == Point2f(-1.0f, -1.0f)){
+        continue;
+      }
+      ax = outCorners[i].x;
+      ay = outCorners[i].y;
+      bx = corners[i].x;
+      by = corners[i].y;
+      //some confusion in signs
+      dx =  ax - bx;
+      dy = ay - by;
+      float angle  =  dx/iparams_.width * FOVx;
+      angles.push_back(angle);
+    }
+    if (angles.size() > 0) {
+      sort( angles.begin(), angles.end() );
+      float median_turn = angles[(int)(angles.size()/2)];
+      return median_turn;
+    }
+  }
+  else
+   return 0.0f;
+}
+void VOdometer::getImage(Mat& image){
   if (vblocks_.image->loaded_)
   {
   unsigned char * rawImage;

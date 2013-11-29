@@ -23,13 +23,17 @@
 
 class VOdometer : public ObjectDetector{
   public:
+    void init(TextLogger* tl){textlogger = tl;};
     //static int IMG_SIZE;
     int lastImageIndex;
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void calcOpticalFlow();
     void calcOdometry();
+    float getIncAngle();
+    float cumlTurn;
  
   private:
+    TextLogger* textlogger;
     Classifier*& classifier_;
     cv::Mat prevImage;
     cv::Mat curImage;
@@ -39,6 +43,7 @@ class VOdometer : public ObjectDetector{
     vector< vector<cv::Point2f> > trackedFeatures;
     bool foundFeatures;   
     void getImage(cv::Mat &);
+    
 };
 
 #endif

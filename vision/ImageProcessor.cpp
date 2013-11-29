@@ -26,6 +26,7 @@ void ImageProcessor::init(TextLogger* tl){
   ball_detector_->init(tl);
   robot_detector_->init(tl);
   cross_detector_->init(tl);
+  visual_odometer_->init(tl);
 }
 
 unsigned char* ImageProcessor::getImg() {
