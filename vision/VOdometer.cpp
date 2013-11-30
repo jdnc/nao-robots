@@ -38,6 +38,7 @@ void VOdometer::calcOpticalFlow(){
        // just do initialization -  no need for actual processing
        //cout << "Now here" << endl;
        prevGray =  curGray;
+       //calculate per frame
        findFeaturesToTrack(prevGray, corners);
        lastImageIndex++;
        trackedFeatures.push_back(corners);
@@ -45,8 +46,9 @@ void VOdometer::calcOpticalFlow(){
        return;
        }
        if(lastImageIndex >= 1){
-         corners = trackedFeatures.back();
+         //corners = trackedFeatures.back();
          prevGray = trackedImages.back();
+         findFeaturesToTrack(prevGray, corners);
          calcOpticalFlowPyrLK(prevGray, curGray, corners, outCorners,
                             status, err, winSize, 4, termcrit);
          int in = 0, out = 0;
