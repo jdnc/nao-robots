@@ -23,15 +23,16 @@
 
 class VOdometer : public ObjectDetector{
   public:
-    void init(TextLogger* tl){textlogger = tl;};
-    //static int IMG_SIZE;
+    int validFeatures;
     int lastImageIndex;
-    VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
-    void calcOpticalFlow();
-    void calcOdometry();
-    float getIncAngle();
     float cumlTurn;
- 
+    VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
+    void init(TextLogger* tl){textlogger = tl;}; 
+    void calcOpticalFlow();
+    void findFeaturesToTrack(cv::Mat &, vector<cv::Point2f> &, bool filter=false);
+    float getIncAngle();
+    bool needReset();
+   
   private:
     TextLogger* textlogger;
     Classifier*& classifier_;
@@ -40,8 +41,7 @@ class VOdometer : public ObjectDetector{
     vector<cv::Point2f> corners;
     vector<cv::Point2f> outCorners;
     vector<cv::Mat>trackedImages;
-    vector< vector<cv::Point2f> > trackedFeatures;
-    bool foundFeatures;   
+    vector< vector<cv::Point2f> > trackedFeatures;  
     void getImage(cv::Mat &);
     
 };
