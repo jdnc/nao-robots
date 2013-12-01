@@ -2,7 +2,7 @@
 #define getImageTop() vblocks_.image->getImgTop()
 #define getImageBottom() vblocks_.image->getImgBottom()
 #define LOOK_BACK 7
-#define MAX_POINTS 400
+#define MAX_POINTS 4
 #define IMG_SIZE 640 * 480
 #define THRESHOLD 
 using namespace cv;
@@ -13,46 +13,65 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
   //TODO make it use the expr below
   //IMG_SIZE = iparams_.height * iparams_.width;
   // initialize prevImage to whatever its looking at now
-  lastImageIndex = 0;
+  lastImageIndexTop = 0;
+  lastImageIndexBottom = 0;
   cumlTurn = 0;
   validFeatures = 0;
+  curTurn = 0; // is in radians
+  cumDispX = 0;
+  cumDispY = 0;
 }
 
 void VOdometer::calcOpticalFlow(){
-     cout << "hare Krishna"<< "lastImageIndex" << lastImageIndex<<endl;
-     vector<uchar> status;
-     vector<float> angles;
-     vector<float> err;
-     float median_turn;
-     TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
-     Size winSize = Size(3,3);
-     Mat prevGray, curGray;
-     getImage(curImage);        
-     cvtColor(curImage, curGray, CV_BGR2GRAY);     
-     if(lastImageIndex == LOOK_BACK){
-       trackedFeatures.clear();
-       trackedImages.clear();
-       lastImageIndex = 0;
+  //Mat outGray;
+  vector<uchar> status;
+  vector<float> angles;
+  vector<float>xDisplacements;
+  vector<float>yDisplacements;
+  vector<float>xDisplacementsWithoutRot;
+  vector<float>yDisplacementsWithoutRot;
+  vector<Point2f>worldStart;
+  vector<Point2f>worldEnd;
+  vector<Point2f>worldEndWithoutRot;
+  vector<float> err;
+  float median_turn;
+  TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
+  Size winSize = Size(3,3);
+  Mat prevGray, curGray;
+  getImage(curImage);        
+  cvtColor(curImage, curGray, CV_BGR2GRAY);
+  if (camera_ == Camera::TOP){
+     // flow vectors in top camera for calculating rotation
+     //cout << "hare Krishna"<< "lastImageIndexTop" << lastImageIndexTop<<endl;          
+     if(lastImageIndexTop == LOOK_BACK){
+       trackedTopFeatures.clear();
+       trackedTopImages.clear();
+       lastImageIndexTop = 0;
      }
-     if(lastImageIndex == 0){
+     if(lastImageIndexTop == 0){
        // just do initialization -  no need for actual processing
        //cout << "Now here" << endl;
        prevGray =  curGray;
        //calculate per frame
        findFeaturesToTrack(prevGray, corners);
-       lastImageIndex++;
-       trackedFeatures.push_back(corners);
-       trackedImages.push_back(curGray);
+       lastImageIndexTop++;
+       trackedTopFeatures.push_back(corners);
+       trackedTopImages.push_back(curGray);
        return;
        }
-       if(lastImageIndex >= 1){
-         //corners = trackedFeatures.back();
-         prevGray = trackedImages.back();
-         findFeaturesToTrack(prevGray, corners);
+       if(lastImageIndexTop >= 1){
+         //corners = trackedTopFeatures.back();
+         prevGray = trackedTopImages.back();
+         //findFeaturesToTrack(prevGray, corners);
+         int id = tic();
          calcOpticalFlowPyrLK(prevGray, curGray, corners, outCorners,
-                            status, err, winSize, 4, termcrit);
+                              status, err, winSize, 4, termcrit);
+         //calcOpticalFlowFarneback(prevGray, curGray, outGray, 0.5, 3, 15, 3, 5, 1.2, 0); 
+         cout << "Time for PyrLK" << toc() << endl;
+         return;
          int in = 0, out = 0;
          validFeatures = 0;
+         tic();
          for(int i=0; i<outCorners.size(); i++){
          //cout << "out"<< out<<"in"<<in<<endl;
            out++;
@@ -83,14 +102,112 @@ void VOdometer::calcOpticalFlow(){
               }
               median_turn = angles[(int)(angles.size()/2)];   
               }
-        trackedImages.push_back(curGray);
-        trackedFeatures.push_back(outCorners);
-        lastImageIndex++;
-        visionLog((7, "angle is %f deg and total angle is %f deg lastImageindex %d",median_turn*180/3.14159, cumlTurn, lastImageIndex -1 ));
-	cout <<"angle"<<median_turn*180/3.14159<<"deg"<<endl;
+        cout<<"time for angle calculations" <<toc()<<endl;
+        trackedTopImages.push_back(curGray);
+        trackedTopFeatures.push_back(outCorners);
+        lastImageIndexTop++;
+        visionLog((7, "angle is %f deg and total angle is %f deg lastImageIndexTop %d",median_turn*180/3.14159, cumlTurn, lastImageIndexTop -1 ));
+	//cout <<"angle"<<median_turn*180/3.14159<<"deg"<<endl;
 	cumlTurn += median_turn*180/3.14159;
-	cout << "total angle change" << cumlTurn << endl;
+	//cout << "total angle change" << cumlTurn << endl;
        } 
+     }
+   else if (camera_ == Camera::BOTTOM){
+      //flow vectors in bottom camera for calculating displacement
+      //cout << "hare Krishna"<< "lastImageIndexBottom" << lastImageIndexBottom<<endl;          
+     if(lastImageIndexBottom == LOOK_BACK){
+       trackedBottomFeatures.clear();
+       trackedBottomImages.clear();
+       lastImageIndexBottom = 0;
+     }
+     if(lastImageIndexBottom == 0){
+       // just do initialization -  no need for actual processing
+       //cout << "Now here" << endl;
+       prevGray =  curGray;
+       //calculate per frame
+       findFeaturesToTrack(prevGray, corners);
+       lastImageIndexBottom++;
+       trackedBottomFeatures.push_back(corners);
+       trackedBottomImages.push_back(curGray);
+       return;
+       }
+       if(lastImageIndexBottom >= 1){
+         //corners = trackedTopFeatures.back();
+         prevGray = trackedBottomImages.back();
+         findFeaturesToTrack(prevGray, corners);
+         calcOpticalFlowPyrLK(prevGray, curGray, corners, outCorners,
+                            status, err, winSize, 4, termcrit);
+         int in = 0, out = 0;
+         validFeatures = 0;
+         tic();
+         for(int i=0; i<outCorners.size(); i++){
+         //cout << "out"<< out<<"in"<<in<<endl;
+           out++;
+           if (status[i] == 0){
+            in++;
+            corners[i] = outCorners[i] = Point2f(-1.0f, -1.0f);
+           }
+           else{
+             validFeatures++;
+             visionLog((8,"Index is %d start (%f , %f)end (%f, %f)",i, corners[i].x,corners[i].y,outCorners[i].x, outCorners[i].y));
+             // now remove rotational effects
+             
+                   float r = curTurn;
+                   float x = outCorners[i].x;
+                   float y = outCorners[i].y;
+                   Point2f out;
+                   out.x = x*cos(r) - y * sin(r);
+                   out.y = x*sin(r) + y * cos(r);
+                                 
+             
+             // obtain the two points on the ground plane
+              Position p1 = cmatrix_.getWorldPosition((int)corners[i].x, (int)corners[i].y, 0);
+              worldStart.push_back(Point2f(p1.x, p1.y));
+              Position p2 = cmatrix_.getWorldPosition((int)outCorners[i].x, (int)outCorners[i].y, 0);
+              worldEnd.push_back(Point2f(p2.x, p2.y));
+              Position p3 = cmatrix_.getWorldPosition((int)out.x, (int)out.y, 0);  
+              worldEndWithoutRot.push_back(Point2f(p3.x, p3.y));        
+           }
+        }
+        cout<<"time for disp calculations" <<toc()<<endl;
+        // calculate net x and y displacements 
+        for(int i = 0; i < worldEnd.size(); i++){
+          float dx, dy;
+          float dx_nr, dy_nr;
+          dx =  fabs(worldEnd[i].x - worldStart[i].x);
+          dy =  fabs(worldEnd[i].y - worldStart[i].y);
+          dx_nr =  fabs(worldEndWithoutRot[i].x - worldStart[i].x);
+          dy_nr =  fabs(worldEndWithoutRot[i].y - worldStart[i].y);
+          xDisplacements.push_back(dx); 
+          yDisplacements.push_back(dy);
+          xDisplacementsWithoutRot.push_back(dx_nr);
+          yDisplacementsWithoutRot.push_back(dy_nr);
+          visionLog((10,"xdisp %f ydisp %f, rot removed xdisp %f ydisp %f", dx, dy, dx_nr, dy_nr));
+        } 
+        // print both the resultant displacements
+        float net_x, net_y, net_x_nr, net_y_nr;
+        net_x = getMedian(xDisplacements);
+        net_y = getMedian(yDisplacements);
+        net_x_nr = getMedian(xDisplacementsWithoutRot);
+        net_y_nr = getMedian(yDisplacementsWithoutRot);
+        //cout <<"Displacements "<<"x "<<net_x<<"y "<<net_y<<" no rot x "<<net_x_nr<<" y "<<net_y_nr << endl;
+        visionLog((11,"xdisp %f ydisp %f, rot removed xdisp %f ydisp %f", net_x, net_y, net_x_nr, net_y_nr));
+        trackedBottomImages.push_back(curGray);
+        trackedBottomFeatures.push_back(outCorners);
+        lastImageIndexBottom++;
+        cumDispX += net_x;
+        cumDispY +=net_y;
+        int maxDispX = 0;
+        int maxDispY = 0;
+        for(int i=0; i<xDisplacements.size(); i++){
+          /*if(maxDispX < xDisplacements[i])*/ maxDispX += xDisplacements[i];
+          /*f(maxDispY < yDisplacements[i])*/ maxDispY += yDisplacements[i];
+        }
+        maxDispX /= xDisplacements.size();
+        maxDispY /= yDisplacements.size();
+        cout << "Displacement X "<<maxDispX<<" Y "<<maxDispY<<endl;
+       } 
+    } 
      
 }
 
@@ -99,8 +216,13 @@ void VOdometer::calcOpticalFlow(){
 void VOdometer::findFeaturesToTrack(Mat &grayImage, vector<Point2f>& foundFeatures, bool filter){
   TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
   Size winSize = Size(3,3);
+  int id;
+  tic();
   goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.005, 20);
+  cout << "Time for good features" << toc() << endl;
+  tic();
   cornerSubPix(grayImage, foundFeatures, winSize, Size(-1,-1), termcrit);
+  cout << "Time for sub pixels" << toc() << endl;
   return;
 }
 
@@ -116,9 +238,9 @@ bool VOdometer::needReset(){
 float VOdometer::getIncAngle(){
   float ax, ay, bx, by, dx, dy;
   vector<float> angles;
-  if (trackedFeatures.size() > 2){
-    outCorners = trackedFeatures[trackedFeatures.size() - 1];
-    corners = trackedFeatures[trackedFeatures.size() - 2]; 
+  if (trackedTopFeatures.size() > 2){
+    outCorners = trackedTopFeatures[trackedTopFeatures.size() - 1];
+    corners = trackedTopFeatures[trackedTopFeatures.size() - 2]; 
     for(int i = 0; i < outCorners.size(); i++){
       if(corners[i] == Point2f(-1.0f, -1.0f) || outCorners[i] == Point2f(-1.0f, -1.0f)){
         continue;
@@ -165,4 +287,11 @@ void VOdometer::getImage(Mat& image){
     delete [] rawImage;
   }
   return;
+}
+
+float VOdometer::getMedian(vector<float> & v){
+  if(v.size() <= 0)
+    return 0.0f;
+  sort(v.begin(), v.end());
+  return v[(int)(v.size()/2)];  
 }
