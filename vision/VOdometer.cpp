@@ -2,7 +2,7 @@
 #define getImageTop() vblocks_.image->getImgTop()
 #define getImageBottom() vblocks_.image->getImgBottom()
 #define LOOK_BACK 7
-#define MAX_POINTS 4
+#define MAX_POINTS 400
 #define IMG_SIZE 640 * 480
 #define THRESHOLD 
 using namespace cv;
@@ -23,6 +23,7 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
 }
 
 void VOdometer::calcOpticalFlow(){
+  WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
   //Mat outGray;
   vector<uchar> status;
   vector<float> angles;
@@ -62,13 +63,11 @@ void VOdometer::calcOpticalFlow(){
        if(lastImageIndexTop >= 1){
          //corners = trackedTopFeatures.back();
          prevGray = trackedTopImages.back();
-         //findFeaturesToTrack(prevGray, corners);
+         findFeaturesToTrack(prevGray, corners);
          int id = tic();
          calcOpticalFlowPyrLK(prevGray, curGray, corners, outCorners,
                               status, err, winSize, 4, termcrit);
-         //calcOpticalFlowFarneback(prevGray, curGray, outGray, 0.5, 3, 15, 3, 5, 1.2, 0); 
-         cout << "Time for PyrLK" << toc() << endl;
-         return;
+         //cout << "Time for PyrLK" << toc() << endl;
          int in = 0, out = 0;
          validFeatures = 0;
          tic();
@@ -94,15 +93,17 @@ void VOdometer::calcOpticalFlow(){
            angles.push_back(angle);
            }
         } 
-        if (angles.size() > 0)  {
-
+        if (angles.size() > 80)  {
               sort( angles.begin(), angles.end());
               for(int i = 0; i< angles.size(); i++){
                 visionLog((9, "index %d angle is %f deg\n",i, angles[i] * RAD_T_DEG ));
               }
               median_turn = angles[(int)(angles.size()/2)];   
               }
-        cout<<"time for angle calculations" <<toc()<<endl;
+        else{
+          median_turn = 0;
+        }
+        //cout<<"time for angle calculations" <<toc()<<endl;
         trackedTopImages.push_back(curGray);
         trackedTopFeatures.push_back(outCorners);
         lastImageIndexTop++;
@@ -150,16 +151,13 @@ void VOdometer::calcOpticalFlow(){
            else{
              validFeatures++;
              visionLog((8,"Index is %d start (%f , %f)end (%f, %f)",i, corners[i].x,corners[i].y,outCorners[i].x, outCorners[i].y));
-             // now remove rotational effects
-             
+             // now remove rotational effects             
                    float r = curTurn;
                    float x = outCorners[i].x;
                    float y = outCorners[i].y;
                    Point2f out;
                    out.x = x*cos(r) - y * sin(r);
-                   out.y = x*sin(r) + y * cos(r);
-                                 
-             
+                   out.y = x*sin(r) + y * cos(r);                                            
              // obtain the two points on the ground plane
               Position p1 = cmatrix_.getWorldPosition((int)corners[i].x, (int)corners[i].y, 0);
               worldStart.push_back(Point2f(p1.x, p1.y));
@@ -169,15 +167,17 @@ void VOdometer::calcOpticalFlow(){
               worldEndWithoutRot.push_back(Point2f(p3.x, p3.y));        
            }
         }
-        cout<<"time for disp calculations" <<toc()<<endl;
+        //cout<<"time for disp calculations" <<toc()<<endl;
+        //if(worldEnd.size() > 80)
+        {
         // calculate net x and y displacements 
         for(int i = 0; i < worldEnd.size(); i++){
           float dx, dy;
           float dx_nr, dy_nr;
-          dx =  fabs(worldEnd[i].x - worldStart[i].x);
-          dy =  fabs(worldEnd[i].y - worldStart[i].y);
-          dx_nr =  fabs(worldEndWithoutRot[i].x - worldStart[i].x);
-          dy_nr =  fabs(worldEndWithoutRot[i].y - worldStart[i].y);
+          dx =  (worldEnd[i].x - worldStart[i].x);
+          dy =  (worldEnd[i].y - worldStart[i].y);
+          dx_nr = (worldEndWithoutRot[i].x - worldStart[i].x);
+          dy_nr = (worldEndWithoutRot[i].y - worldStart[i].y);
           xDisplacements.push_back(dx); 
           yDisplacements.push_back(dy);
           xDisplacementsWithoutRot.push_back(dx_nr);
@@ -188,6 +188,8 @@ void VOdometer::calcOpticalFlow(){
         float net_x, net_y, net_x_nr, net_y_nr;
         net_x = getMedian(xDisplacements);
         net_y = getMedian(yDisplacements);
+        ball->xDisp = net_x;
+        ball->yDisp = net_y;
         net_x_nr = getMedian(xDisplacementsWithoutRot);
         net_y_nr = getMedian(yDisplacementsWithoutRot);
         //cout <<"Displacements "<<"x "<<net_x<<"y "<<net_y<<" no rot x "<<net_x_nr<<" y "<<net_y_nr << endl;
@@ -195,22 +197,27 @@ void VOdometer::calcOpticalFlow(){
         trackedBottomImages.push_back(curGray);
         trackedBottomFeatures.push_back(outCorners);
         lastImageIndexBottom++;
-        cumDispX += net_x;
-        cumDispY +=net_y;
+        cumDispX += net_x_nr;
+        cumDispY +=net_y_nr;
         int maxDispX = 0;
         int maxDispY = 0;
         for(int i=0; i<xDisplacements.size(); i++){
           /*if(maxDispX < xDisplacements[i])*/ maxDispX += xDisplacements[i];
           /*f(maxDispY < yDisplacements[i])*/ maxDispY += yDisplacements[i];
         }
-        maxDispX /= xDisplacements.size();
-        maxDispY /= yDisplacements.size();
-        cout << "Displacement X "<<maxDispX<<" Y "<<maxDispY<<endl;
-       } 
+        if(!(xDisplacements.empty() || yDisplacements.empty())){
+          maxDispX /= xDisplacements.size();
+          maxDispY /= yDisplacements.size();
+          cout << "Displacement X "<< net_x<<" Y "<< net_y<<endl;
+          ball->xDisp = net_x;
+          ball->yDisp = net_y;
+        }
+      }
+      
     } 
      
 }
-
+}
 
 /* find the features to track */
 void VOdometer::findFeaturesToTrack(Mat &grayImage, vector<Point2f>& foundFeatures, bool filter){
@@ -219,10 +226,10 @@ void VOdometer::findFeaturesToTrack(Mat &grayImage, vector<Point2f>& foundFeatur
   int id;
   tic();
   goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.005, 20);
-  cout << "Time for good features" << toc() << endl;
+  //cout << "Time for good features" << toc() << endl;
   tic();
   cornerSubPix(grayImage, foundFeatures, winSize, Size(-1,-1), termcrit);
-  cout << "Time for sub pixels" << toc() << endl;
+  //cout << "Time for sub pixels" << toc() << endl;
   return;
 }
 
@@ -253,7 +260,7 @@ float VOdometer::getIncAngle(){
       dx =  ax - bx;
       dy = ay - by;
       //visionLog((8,"dx %0.2f dy%0.2f ",i, dx, dy));
-      float angle  =  dx/640 * FOVx;
+      float angle  =  dx/iparams_.width * FOVx;
       angles.push_back(angle);
     }
     if (angles.size() > 0) {

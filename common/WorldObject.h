@@ -255,6 +255,8 @@ public:
   float height;
   int fieldLineIndex;
   int ballBlobIndex;
+  float xDisp;
+  float yDisp;
 
   bool fromTopCamera; // true if observed from top cam, false if from bottom
 };

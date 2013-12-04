@@ -6,6 +6,7 @@ import pose, head, kicks
 import commands, cfgstiff
 import testFSM
 import math
+import krishnaFSM
 import head
 
 def areDistinct(state1, state2):
@@ -36,24 +37,37 @@ class Ready(HeadBodyTask):
     commands.setStiffness()
     HeadBodyTask.run(self)
 
+
+
 class Playing(Task):
-  def __init__(self):
-    
-    """
-    HeadBodyTask.__init__(self, 
-      head.Scan(period = 6.0, maxPan = 90.0 * core.DEG_T_RAD, numSweeps = 4),
-      Walk()
-    )
-    """
+  def __init__(self):   
     Task.__init__(self)
     
-
   def run(self):  
     commands.setStiffness()
-    commands.setWalkVelocity(0.5, 0.0, 0.0)    
+    commands.setWalkVelocity(0.3, 0.0, 0.0)
+    ball = core.world_objects.getObjPtr(core.WO_BALL)
+    xDisp = ball.xDisp;
+    yDisp = ball.yDisp;
+    print "x", xDisp
+    print "y", yDisp
+    #core.speech.say("x displacement is %f centimeters. y displacement is %f centimeters" %(xDisp/10.0, yDisp/10.0))
+    core.speech.say("x displacement is %d centimeters." %int((xDisp/10.0)))
+    #if self.getTime() > 30.0:
+    #  self.subtask = pose.Sit()
+     # self.finish
+      #print "speed changed"
+      #self.subtask = Walk1()
+       #core.speech.say("x displacement is %d centimeters." %int((xDisp/10.0)))
     #HeadBodyTask.run(self)
     #Walk.run()
-   
+
+
+"""
+class Playing(MachineTask):
+  def __init__(self):
+    super(Playing, self).__init__(krishnaFSM.DemoMachine()) 
+"""
 
 class Testing(Task):
   def run(self):
@@ -64,9 +78,16 @@ class Testing(Task):
       self.finish
 
 
-class Walk(Task):
+class Walk1(Task):
   def __init__(self):
     Task.__init__(self)
   def run(self):
-    pose.Stand()
-    #commands.setWalkVelocity(0.3, 0, 0.0)
+    #pose.Stand()
+    #core.speech.say("Increasing speed")
+    ball = core.world_objects.getObjPtr(core.WO_BALL)
+    xDisp = ball.xDisp;
+    yDisp = ball.yDisp;
+    print "x", xDisp
+    print "y", yDisp
+    commands.setWalkVelocity(0.0, 0.3, 0.0)
+    core.speech.say("y displacement is %d centimeters." %int((yDisp/10.0)))
