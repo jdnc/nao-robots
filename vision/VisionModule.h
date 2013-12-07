@@ -56,7 +56,7 @@ private:
   CameraBlock *camera_info_;
   RobotInfoBlock *robot_info_;
   GameStateBlock *game_state_;
-
+  OdometryBlock* odometry_;
   VisionBlocks* vblocks_;
 
   RobotCalibration calibration_;

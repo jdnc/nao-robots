@@ -19,13 +19,14 @@ class CameraMatrix {
     Eigen::Matrix3f coordinateShift_;
     Eigen::Matrix3f cameraCalibration_;
     Eigen::Vector3f cameraPosition_;
-    Eigen::Matrix3f cameraRotation_;
+    Eigen::Matrix3f cameraRotation_;   
     const ImageParams& iparams_;
     const Camera::Type& camera_;
     RobotCalibration cal_;
     float fx_, fy_, scale_, cx_, cy_;
 
   public:
+    
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     CameraMatrix(const ImageParams& iparams, const Camera::Type& type);
 

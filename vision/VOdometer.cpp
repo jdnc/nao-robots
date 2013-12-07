@@ -89,7 +89,7 @@ void VOdometer::calcOpticalFlow(){
            float dx =  ax - bx;
            float dy = ay - by;
            visionLog((8,"dx %0.2f dy %0.2f ",dx, dy));
-           float angle  =  abs(dx/iparams_.width * FOVx);
+           float angle  =  (dx/iparams_.width * FOVx); // removed abs
            angles.push_back(angle);
            }
         } 
@@ -101,21 +101,25 @@ void VOdometer::calcOpticalFlow(){
               median_turn = angles[(int)(angles.size()/2)];   
               }
         else{
-          median_turn = 0;
+          for(int i = 0; i< angles.size(); i++)
+             median_turn +=  angles[i];
+          median_turn /= angles.size();
         }
         //cout<<"time for angle calculations" <<toc()<<endl;
         trackedTopImages.push_back(curGray);
         trackedTopFeatures.push_back(outCorners);
         lastImageIndexTop++;
         visionLog((7, "angle is %f deg and total angle is %f deg lastImageIndexTop %d",median_turn*180/3.14159, cumlTurn, lastImageIndexTop -1 ));
-	//cout <<"angle"<<median_turn*180/3.14159<<"deg"<<endl;
+	cout <<"P ANGLE"<<median_turn<<"RAD  "<<"Proprio "<<vblocks_.joint->values_[HeadYaw]<<endl;
 	cumlTurn += median_turn*180/3.14159;
 	//cout << "total angle change" << cumlTurn << endl;
        } 
      }
    else if (camera_ == Camera::BOTTOM){
       //flow vectors in bottom camera for calculating displacement
-      //cout << "hare Krishna"<< "lastImageIndexBottom" << lastImageIndexBottom<<endl;          
+      //cout << "hare Krishna"<< "lastImageIndexBottom" << lastImageIndexBottom<<endl;   
+      //cout<< "camera position height " << CameraMatrix::cameraPostion_[2];
+             
      if(lastImageIndexBottom == LOOK_BACK){
        trackedBottomFeatures.clear();
        trackedBottomImages.clear();

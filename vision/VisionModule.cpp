@@ -25,7 +25,7 @@ void VisionModule::specifyMemoryDependency() {
   requiresMemoryBlock("camera_info");
   requiresMemoryBlock("robot_info");
   requiresMemoryBlock("game_state");
-
+  requiresMemoryBlock("vision_odometry");
   providesMemoryBlock("world_objects");
 }
 
@@ -41,6 +41,7 @@ void VisionModule::specifyMemoryBlocks() {
   getOrAddMemoryBlock(camera_info_,"camera_info");
   getOrAddMemoryBlock(game_state_, "game_state");
   getOrAddMemoryBlock(robot_info_,"robot_info");
+  getOrAddMemoryBlock(odometry_,"vision_odometry");
   top_params_ = &image_->top_params_;
   bottom_params_ = &image_->bottom_params_;
 }
@@ -114,7 +115,7 @@ VisionModule::VisionModule() {
   top_params_ = bottom_params_ = NULL;
   top_processor_ = bottom_processor_ = NULL;
 
-  vblocks_ = new VisionBlocks(world_objects_, body_model_, joint_angles_, image_, robot_vision_, vision_frame_info_, robot_state_, robot_info_, sensors_, game_state_);
+  vblocks_ = new VisionBlocks(world_objects_, body_model_, joint_angles_, image_, robot_vision_, vision_frame_info_, robot_state_, robot_info_, sensors_, game_state_, odometry_);
 
 
   puts(" Done!");

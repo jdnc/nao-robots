@@ -11,6 +11,7 @@
 #include <memory/RobotInfoBlock.h>
 #include <memory/SensorBlock.h>
 #include <memory/GameStateBlock.h>
+#include <memory/OdometryBlock.h>
 
 class VisionBlocks {
   public:
@@ -24,6 +25,7 @@ class VisionBlocks {
     RobotInfoBlock*& robot_info;
     SensorBlock*& sensor;
     GameStateBlock*& game_state;
+    OdometryBlock*& odometry;
 
     VisionBlocks(
         WorldObjectBlock*& world_object_block,
@@ -35,7 +37,8 @@ class VisionBlocks {
         RobotStateBlock*& robot_state_block,
         RobotInfoBlock*& robot_info_block,
         SensorBlock*& sensor_block,
-        GameStateBlock*& game_state_block
+        GameStateBlock*& game_state_block,
+        OdometryBlock*& odometry_block
       )
       : world_object(world_object_block),
       body_model(body_model_block),
@@ -46,7 +49,8 @@ class VisionBlocks {
       robot_state(robot_state_block),
       robot_info(robot_info_block),
       sensor(sensor_block),
-      game_state(game_state_block)
+      game_state(game_state_block),
+      odometry(odometry_block)
       { }
 };
 

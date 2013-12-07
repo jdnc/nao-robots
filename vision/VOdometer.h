@@ -16,6 +16,7 @@
 #include <vision/Macros.h>
 #include <common/Field.h>
 #include <vision/BlobDetector.h>
+#include<vision/CameraMatrix.h>
 #include <math/Point.h>
 #include <vision/BlobDetector.h>
 #include <vision/ObjectDetector.h>
