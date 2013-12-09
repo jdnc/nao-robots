@@ -105,13 +105,21 @@ void VOdometer::calcOpticalFlow(){
              median_turn +=  angles[i];
           median_turn /= angles.size();
         }
+        if (isinfinite(median_turn)) median_turn = 0;
         //cout<<"time for angle calculations" <<toc()<<endl;
         trackedTopImages.push_back(curGray);
         trackedTopFeatures.push_back(outCorners);
         lastImageIndexTop++;
         visionLog((7, "angle is %f deg and total angle is %f deg lastImageIndexTop %d",median_turn*180/3.14159, cumlTurn, lastImageIndexTop -1 ));
-	cout <<"P ANGLE"<<median_turn<<"RAD  "<<"Proprio "<<vblocks_.joint->values_[HeadYaw]<<endl;
-	cumlTurn += median_turn*180/3.14159;
+	
+	cumlTurn += median_turn;
+        if (cumlTurn >= 360 * DEG_T_RAD) 
+          cumlTurn -= 360;
+        cout <<"P FRAME ANGLE"<<median_turn * RAD_T_DEG<<endl;
+        cout <<"Proprio "<<vblocks_.joint->values_[HeadYaw]*RAD_T_DEG<<"CUMMULATIVE "<<(cumlTurn*RAD_T_DEG)<<endl;
+        Pose2D d = vblocks_.odometry->displacement;
+        float  rotation = d.rotation;
+        cout <<"ODOMETRY Angle "<<rotation*RAD_T_DEG<<endl;
 	//cout << "total angle change" << cumlTurn << endl;
        } 
      }
@@ -201,8 +209,12 @@ void VOdometer::calcOpticalFlow(){
         trackedBottomImages.push_back(curGray);
         trackedBottomFeatures.push_back(outCorners);
         lastImageIndexBottom++;
-        cumDispX += net_x_nr;
-        cumDispY +=net_y_nr;
+        cumDispX += net_x;
+        cumDispY +=net_y;
+        if(isinfinite(cumDispX))
+          cumDispX = 0;
+        if(isinfinite(cumDispY))
+          cumDispY = 0;
         int maxDispX = 0;
         int maxDispY = 0;
         for(int i=0; i<xDisplacements.size(); i++){
@@ -212,7 +224,10 @@ void VOdometer::calcOpticalFlow(){
         if(!(xDisplacements.empty() || yDisplacements.empty())){
           maxDispX /= xDisplacements.size();
           maxDispY /= yDisplacements.size();
-          cout << "Displacement X "<< net_x<<" Y "<< net_y<<endl;
+          //cout << "FRAME Displacement X "<< net_x<<" Y "<< net_y<<endl;
+          //cout << "CUMM Displacement X"<< cumDispX<<" Y " <<cumDispY<<endl;
+          cout << "FRAME Displacement X "<< net_x<<endl;
+          cout << "CUMM Displacement X"<< cumDispX<<endl;
           ball->xDisp = net_x;
           ball->yDisp = net_y;
         }
@@ -229,7 +244,8 @@ void VOdometer::findFeaturesToTrack(Mat &grayImage, vector<Point2f>& foundFeatur
   Size winSize = Size(3,3);
   int id;
   tic();
-  goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.005, 20);
+  //goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.005, 20);
+  goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.1, 100);
   //cout << "Time for good features" << toc() << endl;
   tic();
   cornerSubPix(grayImage, foundFeatures, winSize, Size(-1,-1), termcrit);

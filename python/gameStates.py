@@ -46,13 +46,13 @@ class Playing(Task):
   def run(self):  
     commands.setStiffness()
     commands.setWalkVelocity(0.3, 0.0, 0.0)
-    ball = core.world_objects.getObjPtr(core.WO_BALL)
-    xDisp = ball.xDisp;
-    yDisp = ball.yDisp;
-    print "x", xDisp
-    print "y", yDisp
+    #ball = core.world_objects.getObjPtr(core.WO_BALL)
+    #xDisp = ball.xDisp;
+    #yDisp = ball.yDisp;
+    #print "x", xDisp
+    #print "y", yDisp
     #core.speech.say("x displacement is %f centimeters. y displacement is %f centimeters" %(xDisp/10.0, yDisp/10.0))
-    core.speech.say("x displacement is %d centimeters." %int((xDisp/10.0)))
+    #core.speech.say("x displacement is %d centimeters." %int((xDisp/10.0)))
     #if self.getTime() > 30.0:
     #  self.subtask = pose.Sit()
      # self.finish
