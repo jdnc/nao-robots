@@ -89,11 +89,14 @@ void VOdometer::calcOpticalFlow(){
            float dx =  ax - bx;
            float dy = ay - by;
            visionLog((8,"dx %0.2f dy %0.2f ",dx, dy));
-           float angle  =  (dx/iparams_.width * FOVx); // removed abs
-           angles.push_back(angle);
+           float prevAngle = atan2(bx - cmatrix_.cx_, cmatrix_.fx_);
+           //float angle  =  (dx/iparams_.width * FOVx); // removed abs
+           float curAngle = atan2(ax - cmatrix_.cx_, cmatrix_.fx_);
+           float diffAngle = curAngle - prevAngle;
+           angles.push_back(diffAngle);
            }
         } 
-        if (angles.size() > 80)  {
+        if (angles.size() > 0)  {
               sort( angles.begin(), angles.end());
               for(int i = 0; i< angles.size(); i++){
                 visionLog((9, "index %d angle is %f deg\n",i, angles[i] * RAD_T_DEG ));
@@ -101,11 +104,12 @@ void VOdometer::calcOpticalFlow(){
               median_turn = angles[(int)(angles.size()/2)];   
               }
         else{
-          for(int i = 0; i< angles.size(); i++)
-             median_turn +=  angles[i];
-          median_turn /= angles.size();
+          //for(int i = 0; i< angles.size(); i++)
+             //median_turn +=  angles[i];
+          //median_turn /= angles.size();
+          median_turn = 0;
         }
-        if (isinfinite(median_turn)) median_turn = 0;
+        if (isnan(median_turn) || isinf(median_turn)) median_turn = 0;
         //cout<<"time for angle calculations" <<toc()<<endl;
         trackedTopImages.push_back(curGray);
         trackedTopFeatures.push_back(outCorners);
@@ -211,9 +215,9 @@ void VOdometer::calcOpticalFlow(){
         lastImageIndexBottom++;
         cumDispX += net_x;
         cumDispY +=net_y;
-        if(isinfinite(cumDispX))
+        if(isnan(cumDispX) || isinf(cumDispX))
           cumDispX = 0;
-        if(isinfinite(cumDispY))
+        if(isnan(cumDispY) || isinf(cumDispY))
           cumDispY = 0;
         int maxDispX = 0;
         int maxDispY = 0;

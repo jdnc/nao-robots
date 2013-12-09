@@ -23,10 +23,10 @@ class CameraMatrix {
     const ImageParams& iparams_;
     const Camera::Type& camera_;
     RobotCalibration cal_;
-    float fx_, fy_, scale_, cx_, cy_;
+    //float fx_, fy_, scale_, cx_, cy_; make this public
 
   public:
-    
+    float fx_, fy_, scale_, cx_, cy_;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     CameraMatrix(const ImageParams& iparams, const Camera::Type& type);
 
