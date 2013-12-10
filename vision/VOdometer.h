@@ -26,14 +26,14 @@
 
 class VOdometer : public ObjectDetector{
   public:
-    int validFeatures;
-    int lastImageIndexTop;
-    int lastImageIndexBottom;
-    float cumlTurn;
+    int validFeatures; // keep track of number of valid features found
+    int lastImageIndexTop; // useful if keeping history of frames
+    int lastImageIndexBottom; //similar for bottom camera
+    float cumlTurn; // the net angular displacement for all the frames from start to current
     float curTurn;
-    float cumDispX;
-    float cumDispY;
-    float noRotX;
+    float cumDispX; // sum of total x displacements from the start frame
+    float cumDispY; // sum of total y displacements from the start frame
+    float noRotX;  // similar but with rotation effect removed
     float noRotY;
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void init(TextLogger* tl){textlogger = tl;}; 
