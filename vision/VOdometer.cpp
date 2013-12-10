@@ -20,9 +20,12 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
   curTurn = 0; // is in radians
   cumDispX = 0;
   cumDispY = 0;
+  noRotX = 0;
+  noRotY = 0;
 }
 
 void VOdometer::calcOpticalFlow(){
+  
   WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
   //Mat outGray;
   vector<uchar> status;
@@ -118,13 +121,13 @@ void VOdometer::calcOpticalFlow(){
 	
 	cumlTurn += median_turn;
         if (cumlTurn >= 360 * DEG_T_RAD) 
-          cumlTurn -= 360;
+          cumlTurn -= 360*DEG_T_RAD;
         cout <<"P FRAME ANGLE"<<median_turn * RAD_T_DEG<<endl;
         cout <<"Proprio "<<vblocks_.joint->values_[HeadYaw]*RAD_T_DEG<<"CUMMULATIVE "<<(cumlTurn*RAD_T_DEG)<<endl;
         Pose2D d = vblocks_.odometry->displacement;
         float  rotation = d.rotation;
-        cout <<"ODOMETRY Angle "<<rotation*RAD_T_DEG<<endl;
-	//cout << "total angle change" << cumlTurn << endl;
+        //cout <<"ODOMETRY Angle "<<rotation*RAD_T_DEG<<endl;
+	cout << "total angle change" << cumlTurn << endl;
        } 
      }
    else if (camera_ == Camera::BOTTOM){
@@ -215,10 +218,16 @@ void VOdometer::calcOpticalFlow(){
         lastImageIndexBottom++;
         cumDispX += net_x;
         cumDispY +=net_y;
+        noRotX += net_x_nr;
+        noRotY += net_y_nr;
         if(isnan(cumDispX) || isinf(cumDispX))
           cumDispX = 0;
         if(isnan(cumDispY) || isinf(cumDispY))
           cumDispY = 0;
+        if(isnan(noRotX) || isinf(noRotX))
+          noRotX = 0;
+        if(isnan(noRotY) || isinf(noRotY))
+          noRotY = 0;
         int maxDispX = 0;
         int maxDispY = 0;
         for(int i=0; i<xDisplacements.size(); i++){
@@ -230,8 +239,8 @@ void VOdometer::calcOpticalFlow(){
           maxDispY /= yDisplacements.size();
           //cout << "FRAME Displacement X "<< net_x<<" Y "<< net_y<<endl;
           //cout << "CUMM Displacement X"<< cumDispX<<" Y " <<cumDispY<<endl;
-          cout << "FRAME Displacement X "<< net_x<<endl;
-          cout << "CUMM Displacement X"<< cumDispX<<endl;
+          cout << "FRAME Displacement X "<< net_x <<"No Rot "<< net_x_nr<<endl;
+          cout << "CUMM Displacement X"<< cumDispX<< "No Rot "<< noRotX<<endl;
           ball->xDisp = net_x;
           ball->yDisp = net_y;
         }

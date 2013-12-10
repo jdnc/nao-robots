@@ -33,6 +33,8 @@ class VOdometer : public ObjectDetector{
     float curTurn;
     float cumDispX;
     float cumDispY;
+    float noRotX;
+    float noRotY;
     VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier);
     void init(TextLogger* tl){textlogger = tl;}; 
     void calcOpticalFlow();
