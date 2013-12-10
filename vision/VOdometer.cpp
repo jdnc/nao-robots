@@ -10,14 +10,11 @@ using namespace std;
 
 
 VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_INITIALIZE, classifier_(classifier) {
-  //TODO make it use the expr below
-  //IMG_SIZE = iparams_.height * iparams_.width;
-  // initialize prevImage to whatever its looking at now
-  lastImageIndexTop = 0;
+  lastImageIndexTop = 0;               
   lastImageIndexBottom = 0;
   cumlTurn = 0;
   validFeatures = 0;
-  curTurn = 0; // is in radians
+  curTurn = 0;
   cumDispX = 0;
   cumDispY = 0;
   noRotX = 0;
@@ -25,33 +22,39 @@ VOdometer::VOdometer(DETECTOR_DECLARE_ARGS, Classifier*& classifier) : DETECTOR_
 }
 
 void VOdometer::calcOpticalFlow(){
+  // function that integrates various steps for visual odometry
+  //initialize variables necessary for different opencv functions
   
-  WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
-  //Mat outGray;
-  vector<uchar> status;
-  vector<float> angles;
-  vector<float>xDisplacements;
-  vector<float>yDisplacements;
-  vector<float>xDisplacementsWithoutRot;
-  vector<float>yDisplacementsWithoutRot;
-  vector<Point2f>worldStart;
-  vector<Point2f>worldEnd;
-  vector<Point2f>worldEndWithoutRot;
+  vector<uchar> status; 
   vector<float> err;
-  float median_turn;
   TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
   Size winSize = Size(3,3);
   Mat prevGray, curGray;
-  getImage(curImage);        
-  cvtColor(curImage, curGray, CV_BGR2GRAY);
+  
+  vector<float> angles;  //store all the angles calculated from all the flow vectors of current run
+  vector<float>xDisplacements; //store all the x-displacements calculated from all the flow vectors of current run
+  vector<float>yDisplacements;  //store all the y-displacements calculated from all the flow vectors of current run
+  vector<float>xDisplacementsWithoutRot; //all the x displacements with rotational effects removed
+  vector<float>yDisplacementsWithoutRot; //all the y displacements with rotational effects removed 
+  vector<Point2f>worldStart;  // the translation to world coordinates of all corners in previous frame
+  vector<Point2f>worldEnd;  //the translation to world coordinates of all corners in current frame
+  vector<Point2f>worldEndWithoutRot; //the translation to world coordinates of all corners in current frame without rotation
+  float median_turn; //store the average angle for this frame
+  
+  getImage(curImage);  
+  cvtColor(curImage, curGray, CV_BGR2GRAY); //convert to grayscale
+  
+  
   if (camera_ == Camera::TOP){
      // flow vectors in top camera for calculating rotation
-     //cout << "hare Krishna"<< "lastImageIndexTop" << lastImageIndexTop<<endl;          
+     
+     //lookback is no longer used
      if(lastImageIndexTop == LOOK_BACK){
        trackedTopFeatures.clear();
        trackedTopImages.clear();
        lastImageIndexTop = 0;
      }
+     
      if(lastImageIndexTop == 0){
        // just do initialization -  no need for actual processing
        //cout << "Now here" << endl;
@@ -88,7 +91,6 @@ void VOdometer::calcOpticalFlow(){
            float ay = outCorners[i].y;
            float bx = corners[i].x;
            float by = corners[i].y;
-           //some confusion in signs
            float dx =  ax - bx;
            float dy = ay - by;
            visionLog((8,"dx %0.2f dy %0.2f ",dx, dy));
@@ -107,6 +109,7 @@ void VOdometer::calcOpticalFlow(){
               median_turn = angles[(int)(angles.size()/2)];   
               }
         else{
+           // average returns poor results
           //for(int i = 0; i< angles.size(); i++)
              //median_turn +=  angles[i];
           //median_turn /= angles.size();
@@ -122,8 +125,8 @@ void VOdometer::calcOpticalFlow(){
 	cumlTurn += median_turn;
         if (cumlTurn >= 360 * DEG_T_RAD) 
           cumlTurn -= 360*DEG_T_RAD;
-        cout <<"P FRAME ANGLE"<<median_turn * RAD_T_DEG<<endl;
-        cout <<"Proprio "<<vblocks_.joint->values_[HeadYaw]*RAD_T_DEG<<"CUMMULATIVE "<<(cumlTurn*RAD_T_DEG)<<endl;
+        cout <<"P FRAME ANGLE"<<median_turn * RAD_T_DEG<<endl; //current frame angle
+        cout <<"Proprio "<<vblocks_.joint->values_[HeadYaw]*RAD_T_DEG<<"CUMMULATIVE "<<(cumlTurn*RAD_T_DEG)<<endl; //proprioceptive and cummulative angles
         Pose2D d = vblocks_.odometry->displacement;
         float  rotation = d.rotation;
         //cout <<"ODOMETRY Angle "<<rotation*RAD_T_DEG<<endl;
@@ -241,8 +244,6 @@ void VOdometer::calcOpticalFlow(){
           //cout << "CUMM Displacement X"<< cumDispX<<" Y " <<cumDispY<<endl;
           cout << "FRAME Displacement X "<< net_x <<"No Rot "<< net_x_nr<<endl;
           cout << "CUMM Displacement X"<< cumDispX<< "No Rot "<< noRotX<<endl;
-          ball->xDisp = net_x;
-          ball->yDisp = net_y;
         }
       }
       
@@ -256,17 +257,18 @@ void VOdometer::findFeaturesToTrack(Mat &grayImage, vector<Point2f>& foundFeatur
   TermCriteria termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS, 20, 0.3);
   Size winSize = Size(3,3);
   int id;
-  tic();
+  //tic();
   //goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.005, 20);
   goodFeaturesToTrack(grayImage, foundFeatures, MAX_POINTS, 0.1, 100);
   //cout << "Time for good features" << toc() << endl;
-  tic();
+  //tic();
   cornerSubPix(grayImage, foundFeatures, winSize, Size(-1,-1), termcrit);
   //cout << "Time for sub pixels" << toc() << endl;
   return;
 }
 
-/* determine if need o reset the found points*/
+/* determine if need to reset the found points*/
+// not used any longer
 bool VOdometer::needReset(){
   if (validFeatures < 50) {
     return true;
@@ -274,7 +276,7 @@ bool VOdometer::needReset(){
   return false;
 }
 
-/* TODO Change this very bad results */ 
+/* this calculation is no longer used */ 
 float VOdometer::getIncAngle(){
   float ax, ay, bx, by, dx, dy;
   vector<float> angles;
@@ -311,7 +313,7 @@ float VOdometer::getIncAngle(){
    return 0.0f;
 }
 
-/* fetches the images -  no changes in this required */
+/* fetches the images from camera*/
 void VOdometer::getImage(Mat& image){
   if (vblocks_.image->loaded_)
   {
@@ -329,6 +331,7 @@ void VOdometer::getImage(Mat& image){
   return;
 }
 
+//calculate the median of a floating point vector
 float VOdometer::getMedian(vector<float> & v){
   if(v.size() <= 0)
     return 0.0f;
