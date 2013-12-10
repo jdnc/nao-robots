@@ -210,8 +210,8 @@ void VOdometer::calcOpticalFlow(){
         float net_x, net_y, net_x_nr, net_y_nr;
         net_x = getMedian(xDisplacements);
         net_y = getMedian(yDisplacements);
-        ball->xDisp = net_x;
-        ball->yDisp = net_y;
+        //ball->xDisp = net_x;
+        //ball->yDisp = net_y;
         net_x_nr = getMedian(xDisplacementsWithoutRot);
         net_y_nr = getMedian(yDisplacementsWithoutRot);
         //cout <<"Displacements "<<"x "<<net_x<<"y "<<net_y<<" no rot x "<<net_x_nr<<" y "<<net_y_nr << endl;
